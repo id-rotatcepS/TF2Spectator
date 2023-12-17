@@ -1,0 +1,137 @@
+﻿<Window x:Class="TF2WindowsInterface.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TF2WindowsInterface"
+        mc:Ignorable="d"
+        Title="TF2 Spectator" Height="450" Width="800">
+  <Window.Resources>
+    <Style TargetType="Expander">
+      <Setter Property="BorderBrush" Value="DarkGray"/>
+      <Setter Property="Margin" Value="5"/>
+      <Setter Property="Padding" Value="5"/>
+    </Style>
+      <!--<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">-->
+      <!--<Style TargetType="{x:Type Expander}" x:Key="ExpanderStyle">
+        <Setter Property="BorderBrush" Value="DarkGray"/>
+      </Style>-->
+
+      <!--<Style TargetType="{x:Type TextBox}" x:Key="MyTextBox">
+        <Setter Property="FontSize" Value="20"/>
+        <Setter Property="Foreground" Value="{DynamicResource MyGreenBrush}"/>
+      </Style>
+
+      <Style TargetType="{x:Type TextBlock}" x:Key="MyResultTextBlock">
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{DynamicResource MyGreenBrush}"/>
+      </Style>
+
+      <Style TargetType="{x:Type Border}" x:Key="MyBorder">
+        <Setter Property="BorderBrush" Value="{DynamicResource MyGreenBrush}"/>
+        <Setter Property="BorderThickness" Value="4"/>
+        <Setter Property="CornerRadius" Value="5"/>
+      </Style>-->
+    <!--</ResourceDictionary>-->
+  </Window.Resources>
+  
+    <!--<Grid>-->
+      <StackPanel>
+          <Menu x:Name="mainmenu" IsMainMenu="True" >
+
+            <MenuItem Header="Configure">
+              <MenuItem IsChecked="{Binding IsTwitchConnected, Mode=OneWay}" Header="Link Twitch" Command="{Binding LaunchTwitchCommand}"/>
+              <Separator/>
+              <MenuItem Header="Save Config" Command="{Binding SaveConfigCommand}" 
+                        ToolTip="Saved automatically on close"/>
+            </MenuItem>
+
+          </Menu>
+
+        <Expander Header="TF2 (Rcon)" IsExpanded="True">
+          <StackPanel>
+            <StackPanel Orientation="Horizontal">
+
+              <Label Content="Rcon Password:"/>
+              <TextBox x:Name="rconPass" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" Width="120"
+                     Text="{Binding RconPassword}"/>
+              <Label Content="Port:"/>
+              <TextBox x:Name="rconPort" HorizontalAlignment="Left" Height="23"  VerticalAlignment="Top" Width="60"
+                     Text="{Binding RconPort}"/>
+            </StackPanel>
+            <Button x:Name="start" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" Width="75"
+                    Content="(Launch TF2)" Command="{Binding LaunchCommand}"
+                    ToolTip="Starts TF2 using these settings - Don't Click if using tf2_bot_detector - open its latest log after launch, search for 'rcon_password' and 'hostport' to set here, but DON'T click this button."/>
+            <TextBox x:Name="tf2" HorizontalAlignment="Stretch" Height="23"  TextWrapping="Wrap" VerticalAlignment="Top"
+                   Text="{Binding TF2Path}"/>
+          </StackPanel>
+        </Expander>
+
+        <Expander IsExpanded="False">
+          <Expander.Header>
+            <StackPanel Orientation="Horizontal">
+              <Label Content="Twitch  "/>
+              <!--<CheckBox IsChecked="{Binding IsTwitchConnected, Mode=OneWay}" IsEnabled="False"/>-->
+              <Button x:Name="connect" HorizontalAlignment="Left" Height="30" VerticalAlignment="Top" Width="100"
+                    Command="{Binding LaunchTwitchCommand}"
+                    ToolTip="Using these values - blank auth token first does a browser login">
+                <StackPanel Orientation="Horizontal" Height="23">
+                  <Label Content="Link Twitch  "/>
+                  <CheckBox IsChecked="{Binding IsTwitchConnected, Mode=OneWay}" IsEnabled="False"/>
+                </StackPanel>
+              </Button>
+            </StackPanel>
+          </Expander.Header>
+          <StackPanel Orientation="Horizontal">
+            
+            <Label Content="Twitch User/Channel:"/>
+            <TextBox x:Name="twitchUser" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" Width="120"
+                     Text="{Binding TwitchUsername}"/>
+            <Label Content="Latest Auth Token:"/>
+            <TextBox x:Name="twitchAuth" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" Width="220"
+                     Text="{Binding AuthToken}"
+                     ToolTip="Empty = Twitch Authorization request will be launched in your browser. Not empty = will attempt to just use that token."/>
+          
+          </StackPanel>
+        </Expander>
+
+        <Expander Header="TF2 Command Tests" IsExpanded="False">
+          <StackPanel>
+            <ToolBar Height="33" Margin="0,0,0,0"  HorizontalAlignment="Stretch" VerticalAlignment="Top">
+
+              <Menu x:Name="localcommands" IsMainMenu="True" >
+                <MenuItem Header="TF2 Test Commands">
+                  <MenuItem Header="test echo" CommandParameter="echo test" Command="{Binding SendCommand}"/>
+                  <MenuItem Header="toggleconsole" CommandParameter="toggleconsole" Command="{Binding SendCommand}"/>
+                  <MenuItem Header="quit" CommandParameter="quit" Command="{Binding SendCommand}"/>
+                </MenuItem>
+              </Menu>
+
+            </ToolBar>
+
+            <StackPanel Orientation="Horizontal">
+            
+            <Label Content="console command:"/>
+            <TextBox x:Name="input" HorizontalAlignment="Left" Height="23" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"
+                   Text="{Binding CommandString}"/>
+            <Button x:Name="send" Content="Send" HorizontalAlignment="Left" VerticalAlignment="Top" Width="75"
+                    Command="{Binding SendCommand}"/>
+            <Label Content="output:"/>
+            <TextBlock x:Name="output" HorizontalAlignment="Left" Height="23" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"
+                   Text="{Binding OutputString, NotifyOnSourceUpdated=True, NotifyOnTargetUpdated=True, Mode=OneWay, UpdateSourceTrigger=PropertyChanged, BindsDirectlyToSource=True}" />
+
+          </StackPanel></StackPanel>
+        </Expander>
+        
+        <Separator />
+        
+        <Expander Header="Log (newest on top)" IsExpanded="True">
+          <TextBox x:Name="log" HorizontalAlignment="Left" Height="70"  TextWrapping="Wrap" VerticalAlignment="Top" Width="700"
+                     Text="{Binding CommandLog}"/>
+        </Expander>
+
+      </StackPanel>
+    <!--</Grid>-->
+</Window>
