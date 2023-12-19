@@ -164,27 +164,24 @@ namespace TF2WindowsInterface
         {
             TwitchLib.PubSub.Models.Responses.Messages.Redemption.Redemption redemption = e.RewardRedeemed.Redemption;
             GetRedeemCommand(redemption.Reward.Title)
-                ?.Invoke(CleanArgs(redemption.UserInput));
+                ?.Action?.Invoke(CleanArgs(redemption.UserInput));
         }
 
         private void Client_OnChatCommandReceived(object sender, OnChatCommandReceivedArgs e)
         {
             GetCommand(e.Command.CommandText)
-                ?.Invoke(CleanArgs(e.Command.ArgumentsAsString));
+                ?.Action?.Invoke(CleanArgs(e.Command.ArgumentsAsString));
         }
 
         private string CleanArgs(string argumentsAsString)
         {
-            return argumentsAsString
-                .Replace("\"", "")
-                .Replace(';', ',');
+            return argumentsAsString;
         }
 
-        public delegate void ChatCommand(string arguments);
-        public Dictionary<string, ChatCommand> ChatCommands
-        { get; set; } = new Dictionary<string, ChatCommand>();
+        public Dictionary<string, ChatCommandDetails> ChatCommands
+        { get; set; } = new Dictionary<string, ChatCommandDetails>();
 
-        private ChatCommand GetRedeemCommand(string commandText)
+        private ChatCommandDetails GetRedeemCommand(string commandText)
         {
             if (commandText == null)
                 return null;
@@ -196,12 +193,12 @@ namespace TF2WindowsInterface
             return null;
         }
 
-        private ChatCommand GetCommand(string commandText)
+        private ChatCommandDetails GetCommand(string commandText)
         {
             if (commandText == null) 
                 return null;
-            if(commandText == "help")
-                return HelpCommand;
+            if(commandText == "help" || commandText == "commands")
+                return new ChatCommandDetails("!help", HelpCommand, "this help command. Include a command name for help on that command");
 
             string key = "!" + commandText.ToLower();
             if (ChatCommands.ContainsKey(key))
@@ -209,12 +206,30 @@ namespace TF2WindowsInterface
 
             return null;
         }
+
         private void HelpCommand(string arguments)
         {
-            string message = "available commands (may or may not take arguments): ";
-            foreach(string key in ChatCommands.Keys)
-                if(key.StartsWith("!"))
-                    message += " " + key;
+            string message;
+            if (string.IsNullOrEmpty(arguments))
+            {
+                message = "available commands (\"!help commandname\" for more info): ";
+                foreach (string key in ChatCommands.Keys)
+                    if (key.StartsWith("!"))
+                        message += " " + key;
+            }
+            else
+            {
+                if (arguments.StartsWith("!"))
+                    arguments = arguments.Substring(1);
+                ChatCommandDetails com = GetCommand(arguments.Trim());
+                if (com == null) return;
+
+                string help = com.Help;
+                if (string.IsNullOrEmpty(help))
+                    help = "?";
+                
+                message = com.Command + ": " + help;
+            }
 
             client.SendMessage(TwitchUsername, message);
         }

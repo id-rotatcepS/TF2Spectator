@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Windows.Input;
 
@@ -144,20 +145,11 @@ namespace TF2WindowsInterface
             {
                 TwitchInstance twitch = new TwitchInstance(twitchUsername)
                 {
-                    ChatCommands = new Dictionary<string, TwitchInstance.ChatCommand>()
+                    ChatCommands = new Dictionary<string, ChatCommandDetails>()
                     {
-                        //["!hiderate"] = HideRate,
-                        //["hiderate"] = HideRate,
-                        //["!vrmode"] = VRMode,
-                        //["!boring"] = BoringCharacter,
-                        //["!burninggibs"] = BurningGibs,
-                        //["!showposition"] = ShowPos,
-                        //["!3rdperson"] = ThirdPerson,
-                        //["!shake"] = Shake,
-                        //["die"] = Kill,
-                        //["explode"] = Explode,
-                        //["!crosshair"] = Crosshair,
-                        ["tf2 class selection"] = RedeemClass,
+                        ["tf2 class selection"] = new ChatCommandDetails(
+                            "tf2 class selection", RedeemClass,
+                            "Select a TF2 class with 1-9 or Scout, Soldier, Pyro, Demoman, Heavy, Engineer, Medic, Sniper, or Spy")
                     }
                 };
                 foreach (string config in ReadCommandConfig().Split('\n'))
@@ -166,11 +158,23 @@ namespace TF2WindowsInterface
                         continue;
                     try
                     {
-                        (string name, string commandFormat) = Divide(config, CommandSeparator);
+                        string[] commandParts = config.Split(CommandSeparator);
+                        string namePart = commandParts[0];
+                        string commandFormat = commandParts[1];
+                        string commandHelp = commandParts.Length > 2 ? commandParts[2] : string.Empty;
 
-                        twitch.ChatCommands.Add(
-                            name,
-                            (s) => SendCommandExecute(string.Format(commandFormat, s)));
+                        string[] names = namePart.Split('|');
+                        string name = names[0];
+                        ChatCommandDetails command = new ChatCommandDetails(name,
+                            (s) => SendCommandExecute(string.Format(commandFormat, CleanArgs(s))),
+                            commandHelp);
+
+                        if (names.Length > 1)
+                            command.Aliases = names.Where(alias => alias != name).ToList();
+
+                        twitch.ChatCommands[command.Command] = command;
+                        foreach(string alias in command.Aliases)
+                            twitch.ChatCommands[alias] = command;
 
                         AddLog("configured command: " + name);
                     }
@@ -213,31 +217,32 @@ namespace TF2WindowsInterface
 
         //read from a file, use this as backup
         string commandConfig =
-            "!vrmode" + CommandSeparator + "cl_first_person_uses_world_model 1;wait 20000;cl_first_person_uses_world_model 0\n" +
-            "!burninggibs" + CommandSeparator + "cl_burninggibs 1;wait 20000;cl_burninggibs 0\n" +
-            "!showposition" + CommandSeparator + "cl_showpos 1;wait 20000;cl_showpos 0\n" +
+            "!vrmode" + CommandSeparator + "cl_first_person_uses_world_model 1;wait 20000;cl_first_person_uses_world_model 0" + CommandSeparator + "turns on VR mode for a few minutes\n" +
+            "!burninggibs" + CommandSeparator + "cl_burninggibs 1;wait 20000;cl_burninggibs 0" + CommandSeparator + "turns on burning gibs for a few minutes\n" +
+            "!showposition" + CommandSeparator + "cl_showpos 1;wait 20000;cl_showpos 0" + CommandSeparator + "turns on game position info for a few minutes\n" +
 
-            "!3rdperson" + CommandSeparator + "thirdperson;wait 20000;firstperson\n" +
-            "!shake" + CommandSeparator + "shake\n" +
-            "!crosshair" + CommandSeparator + "cl_crosshair_file {0};wait 20000;cl_crosshair_file\n" +
-            "die" + CommandSeparator + "kill\n" +
-            "explode" + CommandSeparator + "explode\n" +
+            // requires sv_cheats "!3rdperson" + CommandSeparator + "thirdperson;wait 20000;firstperson" + CommandSeparator + "turns on  for a few minutes\n" +
+            // requires sv_cheats "!shake" + CommandSeparator + "shake" + CommandSeparator + "does the demoman charge screenshake\n" +
+            "!crosshair" + CommandSeparator + "cl_crosshair_file {0};wait 20000;cl_crosshair_file" + CommandSeparator + "needs one argument (like crosshair1, crosshair2 ...) - changes the crosshair to the file argument value for a few minutes\n" +
+            "die" + CommandSeparator + "kill" + CommandSeparator + "instant death in game\n" +
+            "explode" + CommandSeparator + "explode" + CommandSeparator + "explosive instant death in game\n" +
 
-            "!hiderate" + CommandSeparator + "cl_showfps 0;wait 20000;cl_showfps 1\n" +
-            "hiderate" + CommandSeparator + "cl_showfps 0;wait 20000;cl_showfps 1\n" +
-            "!boring" + CommandSeparator + "cl_hud_playerclass_use_playermodel 0;wait 20000;cl_hud_playerclass_use_playermodel 1\n";
-
-        private (string name, string commandFormat) Divide(string config, char v)
-        {
-            string[] parts = config.Split(v);
-            if (parts.Length != 2)
-                throw new IndexOutOfRangeException("Divide expected 2 parts, but had " + parts.Length);
-            return (parts[0], parts[1]);
-        }
+            "!bigguns" + CommandSeparator + "tf_use_min_viewmodels 0;wait 20000;tf_use_min_viewmodels 1" + CommandSeparator + "turns off \"min viewmodels\" for a few minutes\n" +
+            "!hiderate|hiderate" + CommandSeparator + "cl_showfps 0;wait 20000;cl_showfps 1" + CommandSeparator + "turns off the game fps display for a few minutes\n" +
+            "!boring" + CommandSeparator + "cl_hud_playerclass_use_playermodel 0;wait 20000;cl_hud_playerclass_use_playermodel 1" + CommandSeparator + "turns off the 3d playermodel for a few minutes\n";
 
         private void RedeemClass(string arguments)
         {
             // TODO scan args for 1/scout etc and attempt to invoke that class change.
+        }
+
+        private string CleanArgs(string argumentsAsString)
+        {
+            if (string.IsNullOrEmpty(argumentsAsString)) 
+                return argumentsAsString;
+            return argumentsAsString
+                .Replace("\"", "")
+                .Replace(';', ',');
         }
 
         public string RconPassword
@@ -316,59 +321,6 @@ namespace TF2WindowsInterface
                 AddLog(cmd + ": " + s);
             });
         }
-
-        //private void HideRate(string arguments)
-        //{
-        //    TempDisable("cl_showfps");
-        //}
-        //private void TempDisable(string variable)
-        //{
-        //    SendCommandExecute(variable + " 0;wait 20000;" + variable + " 1");
-        //}
-        //private void Shake(string arguments)
-        //{
-        //    SendCommandExecute("shake");
-        //}
-        //private void Kill(string arguments)
-        //{
-        //    SendCommandExecute("kill");
-        //}
-        //private void Explode(string arguments)
-        //{
-        //    SendCommandExecute("explode");
-        //}
-        //private void ThirdPerson(string arguments)
-        //{
-        //    SendCommandExecute("thirdperson;wait 10000;firstperson");
-        //}
-
-        //private void VRMode(string arguments)
-        //{
-        //    TempToggle("cl_first_person_uses_world_model");
-        //}
-        //private void TempToggle(string variable)
-        //{
-        //    SendCommandExecute(variable + " 1;wait 20000;" + variable + " 0");
-        //}
-
-        //private void BoringCharacter(string arguments)
-        //{
-        //    TempDisable("cl_hud_playerclass_use_playermodel");
-        //}
-
-        //private void BurningGibs(string arguments)
-        //{
-        //    TempToggle("cl_burninggibs");
-        //}
-
-        //private void ShowPos(string arguments)
-        //{
-        //    TempToggle("cl_showpos");
-        //}
-        //private void Crosshair(string arguments)
-        //{
-        //    SendCommandExecute("cl_crosshair_file "+arguments+";wait 20000;cl_crosshair_file \"\"");
-        //}
 
         private void AddLog(string msg)
         {
