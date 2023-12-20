@@ -3,7 +3,7 @@ using System.Collections.Specialized;
 using System.IO;
 using System.Net;
 
-namespace TF2WindowsInterface
+namespace TwitchAuthInterface
 {
     /// <summary>
     /// Connect your oauth request redirect URL and get the resulting authtoken.
@@ -29,7 +29,7 @@ namespace TF2WindowsInterface
             if (prefixes == null || prefixes.Length == 0)
                 throw new ArgumentException(nameof(prefixes));
 
-            this.Prefixes = prefixes;
+            Prefixes = prefixes;
         }
 
         /// <summary>
@@ -129,7 +129,7 @@ namespace TF2WindowsInterface
                 HttpListenerResponse response = context.Response;
 
                 // Construct a response that loads with hash as the query.
-                string responseString = 
+                string responseString =
                     "<HTML>" +
                     "<head><script>" +
                     "window.location.href = " +
@@ -325,7 +325,7 @@ namespace TF2WindowsInterface
             Error = error;
             ErrorDescription = errorDescription;
         }
-        public override string AccessToken => throw new TwitchLib.Client.Exceptions.ClientNotInitializedException("Access Token not received");
+        public override string AccessToken => throw new NotImplementedException("Access Token not received");
     }
 
 

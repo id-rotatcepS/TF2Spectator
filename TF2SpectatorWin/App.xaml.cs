@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 
-namespace TF2WindowsInterface
+namespace TF2SpectatorWin
 {
     /// <summary>
     /// Interaction logic for App.xaml

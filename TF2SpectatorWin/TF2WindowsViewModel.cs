@@ -10,7 +10,7 @@ using System.Windows.Input;
 
 using TF2FrameworkInterface;
 
-namespace TF2WindowsInterface
+namespace TF2SpectatorWin
 {
     internal class TF2WindowsViewModel : INotifyPropertyChanged
     {
@@ -47,15 +47,15 @@ namespace TF2WindowsInterface
                 AddLog(ex.Message);
             }
 
-            TwitchUsername = (lines.Length > 0) ? lines[0] : "yourNameHere";
-            AuthToken = (lines.Length > 1) ? lines[1] : string.Empty;
+            TwitchUsername = lines.Length > 0 ? lines[0] : "yourNameHere";
+            AuthToken = lines.Length > 1 ? lines[1] : string.Empty;
 
-            TF2Path = (lines.Length > 2) ? lines[2] : @"C:\Program Files (x86)\Steam\steamapps\common\Team Fortress 2";
+            TF2Path = lines.Length > 2 ? lines[2] : @"C:\Program Files (x86)\Steam\steamapps\common\Team Fortress 2";
 
-            RconPassword = (lines.Length > 3) ? lines[3] : "test";
+            RconPassword = lines.Length > 3 ? lines[3] : "test";
             try
             {
-                RconPort = ushort.Parse((lines.Length > 4) ? lines[4] : "48000");
+                RconPort = ushort.Parse(lines.Length > 4 ? lines[4] : "48000");
             }
             catch (Exception ex)
             {
@@ -100,7 +100,7 @@ namespace TF2WindowsInterface
         {
             try
             {
-                return (_tf2 = CreateTF2Instance());
+                return _tf2 = CreateTF2Instance();
             }
             finally
             {
@@ -131,7 +131,7 @@ namespace TF2WindowsInterface
         {
             try
             {
-                return (_twitch = CreateTwitchInstance(TwitchUsername));
+                return _twitch = CreateTwitchInstance(TwitchUsername);
             }
             finally
             {
@@ -152,37 +152,9 @@ namespace TF2WindowsInterface
                             "Select a TF2 class with 1-9 or Scout, Soldier, Pyro, Demoman, Heavy, Engineer, Medic, Sniper, or Spy")
                     }
                 };
-                foreach (string config in ReadCommandConfig().Split('\n'))
-                {
-                    if (config.Trim().Length == 0)
-                        continue;
-                    try
-                    {
-                        string[] commandParts = config.Split(CommandSeparator);
-                        string namePart = commandParts[0];
-                        string commandFormat = commandParts[1];
-                        string commandHelp = commandParts.Length > 2 ? commandParts[2] : string.Empty;
 
-                        string[] names = namePart.Split('|');
-                        string name = names[0];
-                        ChatCommandDetails command = new ChatCommandDetails(name,
-                            (s) => SendCommandExecute(string.Format(commandFormat, CleanArgs(s))),
-                            commandHelp);
-
-                        if (names.Length > 1)
-                            command.Aliases = names.Where(alias => alias != name).ToList();
-
-                        twitch.ChatCommands[command.Command] = command;
-                        foreach(string alias in command.Aliases)
-                            twitch.ChatCommands[alias] = command;
-
-                        AddLog("configured command: " + name);
-                    }
-                    catch (Exception)
-                    {
-                        AddLog("bad command config: " + config);
-                    }
-                }
+                LoadCommandConfiguration(twitch.ChatCommands);
+                
                 return twitch;
             }
             // error handling is handled on launch command instead.
@@ -195,6 +167,47 @@ namespace TF2WindowsInterface
             {
                 ViewNotification(nameof(AuthToken));
             }
+        }
+
+        private void LoadCommandConfiguration(Dictionary<string, ChatCommandDetails> chatCommands)
+        {
+            foreach (string config in ReadCommandConfig().Split('\n'))
+            {
+                if (config.Trim().Length == 0)
+                    continue;
+                try
+                {
+                    ChatCommandDetails command = CreateCommandDetails(config);
+
+                    chatCommands[command.Command] = command;
+                    foreach (string alias in command.Aliases)
+                        chatCommands[alias] = command;
+
+                    AddLog("configured command: " + command.Command);
+                }
+                catch (Exception)
+                {
+                    AddLog("bad command config: " + config);
+                }
+            }
+        }
+
+        private ChatCommandDetails CreateCommandDetails(string config)
+        {
+            string[] commandParts = config.Split(CommandSeparator);
+            string namePart = commandParts[0];
+            string commandFormat = commandParts[1];
+            string commandHelp = commandParts.Length > 2 ? commandParts[2] : string.Empty;
+
+            string[] names = namePart.Split('|');
+            string name = names[0];
+            ChatCommandDetails command = new ChatCommandDetails(name,
+                (s) => SendCommandExecute(string.Format(commandFormat, CleanArgs(s))),
+                commandHelp);
+
+            if (names.Length > 1)
+                command.Aliases = names.Where(alias => alias != name).ToList();
+            return command;
         }
 
         private string ReadCommandConfig()
@@ -238,7 +251,7 @@ namespace TF2WindowsInterface
 
         private string CleanArgs(string argumentsAsString)
         {
-            if (string.IsNullOrEmpty(argumentsAsString)) 
+            if (string.IsNullOrEmpty(argumentsAsString))
                 return argumentsAsString;
             return argumentsAsString
                 .Replace("\"", "")
@@ -302,7 +315,7 @@ namespace TF2WindowsInterface
 
         private ICommand _SendCommand;
         public ICommand SendCommand => _SendCommand
-            ?? (_SendCommand = new RelayCommand<object>(this.SendCommandExecute));
+            ?? (_SendCommand = new RelayCommand<object>(SendCommandExecute));
 
         private void SendCommandExecute(object obj)
         {
@@ -330,7 +343,7 @@ namespace TF2WindowsInterface
 
         private ICommand _LaunchCommand;
         public ICommand LaunchCommand => _LaunchCommand
-            ?? (_LaunchCommand = new RelayCommand<object>(this.LaunchCommandExecute));
+            ?? (_LaunchCommand = new RelayCommand<object>(LaunchCommandExecute));
 
         private void LaunchCommandExecute(object obj)
         {
@@ -339,7 +352,7 @@ namespace TF2WindowsInterface
 
         private ICommand _LaunchTwitchCommand;
         public ICommand LaunchTwitchCommand => _LaunchTwitchCommand
-            ?? (_LaunchTwitchCommand = new RelayCommand<object>(this.LaunchTwitchCommandExecute));
+            ?? (_LaunchTwitchCommand = new RelayCommand<object>(LaunchTwitchCommandExecute));
 
         private void LaunchTwitchCommandExecute(object obj)
         {

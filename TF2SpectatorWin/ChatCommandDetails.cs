@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace TF2WindowsInterface
+namespace TF2SpectatorWin
 {
     public class ChatCommandDetails
     {

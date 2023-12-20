@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
 
-namespace TF2WindowsInterface
+namespace TwitchAuthInterface
 {
+    /// <summary>
+    /// Authorize a Twitch client ID using Implicit OAuth to get an Auth Token
+    /// </summary>
     public class TwitchImplicitOAuth
     {
         private static readonly string TwitchOAuthPrefix = "https://id.twitch.tv/oauth2/authorize";

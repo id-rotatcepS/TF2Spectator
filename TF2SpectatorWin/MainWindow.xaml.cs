@@ -1,6 +1,6 @@
 ﻿using System.Windows;
 
-namespace TF2WindowsInterface
+namespace TF2SpectatorWin
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml

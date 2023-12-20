@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-
+using TwitchAuthInterface;
 using TwitchLib.Client;
 using TwitchLib.Client.Events;
 using TwitchLib.Client.Models;
@@ -8,7 +8,7 @@ using TwitchLib.Communication.Clients;
 using TwitchLib.Communication.Models;
 using TwitchLib.PubSub;
 
-namespace TF2WindowsInterface
+namespace TF2SpectatorWin
 {
 
     public class TwitchInstance
@@ -157,7 +157,7 @@ namespace TF2WindowsInterface
             // TODO this is not firing
             pubsub.OnChannelPointsRewardRedeemed += Pubsub_OnChannelPointsRewardRedeemed;
             pubsub.Connect();
-            
+
         }
 
         private void Pubsub_OnChannelPointsRewardRedeemed(object sender, TwitchLib.PubSub.Events.OnChannelPointsRewardRedeemedArgs e)
@@ -195,9 +195,9 @@ namespace TF2WindowsInterface
 
         private ChatCommandDetails GetCommand(string commandText)
         {
-            if (commandText == null) 
+            if (commandText == null)
                 return null;
-            if(commandText == "help" || commandText == "commands")
+            if (commandText == "help" || commandText == "commands")
                 return new ChatCommandDetails("!help", HelpCommand, "this help command. Include a command name for help on that command");
 
             string key = "!" + commandText.ToLower();
@@ -227,7 +227,7 @@ namespace TF2WindowsInterface
                 string help = com.Help;
                 if (string.IsNullOrEmpty(help))
                     help = "?";
-                
+
                 message = com.Command + ": " + help;
             }
 
