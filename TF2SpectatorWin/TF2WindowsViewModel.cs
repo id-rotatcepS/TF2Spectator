@@ -1,11 +1,11 @@
 ﻿using AspenWin;
 
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Input;
 
 using TF2FrameworkInterface;
@@ -143,17 +143,15 @@ namespace TF2SpectatorWin
         {
             try
             {
-                TwitchInstance twitch = new TwitchInstance(twitchUsername)
-                {
-                    ChatCommands = new Dictionary<string, ChatCommandDetails>()
-                    {
-                        ["tf2 class selection"] = new ChatCommandDetails(
-                            "tf2 class selection", RedeemClass,
-                            "Select a TF2 class with 1-9 or Scout, Soldier, Pyro, Demoman, Heavy, Engineer, Medic, Sniper, or Spy")
-                    }
-                };
+                TwitchInstance twitch = new TwitchInstance(twitchUsername);
+                ChatCommandDetails classSelection = new ChatCommandDetails(
+                                            "tf2 class selection", RedeemClass,
+                                            "Select a TF2 class with 1-9 or Scout, Soldier, Pyro, Demoman, Heavy, Engineer, Medic, Sniper, or Spy");
+                twitch.AddCommand(classSelection);
+                // reward id to make channel points work via messages because I can't get pubsub to work.
+                twitch.AddCommand("cbabba18-d1ec-44ca-9e30-59303812a600", classSelection);
 
-                LoadCommandConfiguration(twitch.ChatCommands);
+                LoadCommandConfiguration(twitch);
                 
                 return twitch;
             }
@@ -169,7 +167,7 @@ namespace TF2SpectatorWin
             }
         }
 
-        private void LoadCommandConfiguration(Dictionary<string, ChatCommandDetails> chatCommands)
+        private void LoadCommandConfiguration(TwitchInstance twitch)
         {
             foreach (string config in ReadCommandConfig().Split('\n'))
             {
@@ -179,9 +177,9 @@ namespace TF2SpectatorWin
                 {
                     ChatCommandDetails command = CreateCommandDetails(config);
 
-                    chatCommands[command.Command] = command;
+                    twitch.AddCommand(command);
                     foreach (string alias in command.Aliases)
-                        chatCommands[alias] = command;
+                        twitch.AddCommand(alias, command);
 
                     AddLog("configured command: " + command.Command);
                 }
@@ -202,7 +200,7 @@ namespace TF2SpectatorWin
             string[] names = namePart.Split('|');
             string name = names[0];
             ChatCommandDetails command = new ChatCommandDetails(name,
-                (s) => SendCommandExecute(string.Format(commandFormat, CleanArgs(s))),
+                (userDisplayName, args) => SendCommandExecute(string.Format(commandFormat, userDisplayName, CleanArgs(args))),
                 commandHelp);
 
             if (names.Length > 1)
@@ -244,9 +242,43 @@ namespace TF2SpectatorWin
             "!hiderate|hiderate" + CommandSeparator + "cl_showfps 0;wait 20000;cl_showfps 1" + CommandSeparator + "turns off the game fps display for a few minutes\n" +
             "!boring" + CommandSeparator + "cl_hud_playerclass_use_playermodel 0;wait 20000;cl_hud_playerclass_use_playermodel 1" + CommandSeparator + "turns off the 3d playermodel for a few minutes\n";
 
-        private void RedeemClass(string arguments)
+        private Regex scout = new Regex("scout|Jeremy|scunt|baby|1", RegexOptions.IgnoreCase);
+        private Regex soldier = new Regex("soldier|Jane|Doe|solly|2", RegexOptions.IgnoreCase);
+        private Regex pyro = new Regex("pyro|pybro|flyro|3", RegexOptions.IgnoreCase);
+        private Regex demo = new Regex("demo|Tavish|DeGroot|explo|4", RegexOptions.IgnoreCase);
+        private Regex heavy = new Regex("heavy|Mikhail|Misha|hoovy|fat|5", RegexOptions.IgnoreCase);
+        private Regex engi = new Regex("engi|Dell|Conagher|6", RegexOptions.IgnoreCase);
+        private Regex medic = new Regex("medic|Ludwig|Humboldt|7", RegexOptions.IgnoreCase);
+        private Regex sniper = new Regex("sniper|Mick|Mundy|8", RegexOptions.IgnoreCase);
+        private Regex spy = new Regex("spy|french|france|9", RegexOptions.IgnoreCase);
+        private void RedeemClass(string userDisplayName, string arguments)
         {
-            // TODO scan args for 1/scout etc and attempt to invoke that class change.
+            // in order of my preference - if they give me somethign ambiguous it gets the first one on this list.
+            string joinas;
+            if (soldier.IsMatch(arguments))
+                joinas = "soldier";
+            else if (demo.IsMatch(arguments))
+                joinas = "demoman";
+            else if (engi.IsMatch(arguments))
+                joinas = "engineer";
+            else if (medic.IsMatch(arguments))
+                joinas = "medic";
+            else if (spy.IsMatch(arguments))
+                joinas = "spy";
+            else if (pyro.IsMatch(arguments))
+                joinas = "pyro";
+            else if (heavy.IsMatch(arguments))
+                joinas = "heavyweapons";
+            else if (sniper.IsMatch(arguments))
+                joinas = "sniper";
+            else if (scout.IsMatch(arguments))
+                joinas = "scout";
+            else
+                joinas = "demoman";
+
+            Twitch.SendMessageWithWrapping(string.Format("Ok, {0}, we will switch to the class '{1}'", userDisplayName, joinas));
+            string cmd = "join_class " + joinas;
+            SendCommandExecute(cmd);
         }
 
         private string CleanArgs(string argumentsAsString)

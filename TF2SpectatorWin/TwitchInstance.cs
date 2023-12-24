@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using TwitchAuthInterface;
 using TwitchLib.Client;
 using TwitchLib.Client.Events;
@@ -131,6 +132,25 @@ namespace TF2SpectatorWin
 
         private void StartClient(ConnectionCredentials credentials)
         {
+            pubsub = new TwitchPubSub();
+            //pubsub.OnLog += Client_OnLog;
+            pubsub.ListenToChannelPoints(TwitchUsername);
+            pubsub.OnChannelPointsRewardRedeemed += Pubsub_OnChannelPointsRewardRedeemed;
+            pubsub.OnListenResponse += Pubsub_OnListenResponse;
+            pubsub.OnRewardRedeemed += Pubsub_OnRewardRedeemed;
+
+            // odd pubsub format... connect, within 15 seconds of connection send topics.
+            // TODO pubsub.OnPubSubServiceError pubsub.OnPubSubServiceClosed
+            pubsub.OnPubSubServiceClosed += Pubsub_OnPubSubServiceClosed;
+            pubsub.OnPubSubServiceError += Pubsub_OnPubSubServiceError;
+            pubsub.OnPubSubServiceConnected += (sender, e) =>
+            {
+                (sender as TwitchPubSub).SendTopics(AuthToken);
+            };
+            pubsub.Connect();
+
+            // Note, I did the client before the pubsub before and it broke my client connection?... but this way the pubsub is broken.
+
             ClientOptions clientOptions = new ClientOptions
             {
                 MessagesAllowedInPeriod = 750,
@@ -141,6 +161,8 @@ namespace TF2SpectatorWin
             client.Initialize(credentials, channel: TwitchUsername);
 
             client.OnLog += Client_OnLog;
+            client.OnSendReceiveData += Client_OnSendReceiveData;
+            client.OnUnaccountedFor += Client_OnUnaccountedFor;
             client.OnConnected += Client_OnConnected;
             client.OnJoinedChannel += Client_OnJoinedChannel;
 
@@ -151,26 +173,41 @@ namespace TF2SpectatorWin
             client.OnChatCommandReceived += Client_OnChatCommandReceived;
 
             _ = client.Connect();
+        }
 
-            pubsub = new TwitchPubSub();
-            pubsub.ListenToChannelPoints(TwitchUsername);
-            // TODO this is not firing
-            pubsub.OnChannelPointsRewardRedeemed += Pubsub_OnChannelPointsRewardRedeemed;
-            pubsub.Connect();
+        private void Pubsub_OnPubSubServiceClosed(object sender, EventArgs e)
+        {
+            Console.WriteLine("pubsub CLOSED"); // no special event
+        }
 
+        private void Pubsub_OnPubSubServiceError(object sender, TwitchLib.PubSub.Events.OnPubSubServiceErrorArgs e)
+        {
+            Console.WriteLine("pubsub ERROR " + e.Exception?.ToString());
+        }
+
+        private void Pubsub_OnRewardRedeemed(object sender, TwitchLib.PubSub.Events.OnRewardRedeemedArgs e)
+        {
+            SendMessageWithWrapping("old reward redeemed interface" + e.ToString());
+            GetRedeemCommand(e.RewardTitle) // redemption.Reward.Cost
+                ?.Action?.Invoke(e.DisplayName, CleanArgs(e.Message));
+        }
+
+        private void Pubsub_OnListenResponse(object sender, TwitchLib.PubSub.Events.OnListenResponseArgs e)
+        {
+            Console.WriteLine("pubsub heard " + (e.Successful ? "succeeded" : "failed") + ":" + e.Response?.Error + ":" + e.Topic);
         }
 
         private void Pubsub_OnChannelPointsRewardRedeemed(object sender, TwitchLib.PubSub.Events.OnChannelPointsRewardRedeemedArgs e)
         {
             TwitchLib.PubSub.Models.Responses.Messages.Redemption.Redemption redemption = e.RewardRedeemed.Redemption;
-            GetRedeemCommand(redemption.Reward.Title)
-                ?.Action?.Invoke(CleanArgs(redemption.UserInput));
+            GetRedeemCommand(redemption.Reward.Title) // redemption.Reward.Cost
+                ?.Action?.Invoke(redemption.User.DisplayName, CleanArgs(redemption.UserInput));
         }
 
         private void Client_OnChatCommandReceived(object sender, OnChatCommandReceivedArgs e)
         {
             GetCommand(e.Command.CommandText)
-                ?.Action?.Invoke(CleanArgs(e.Command.ArgumentsAsString));
+                ?.Action?.Invoke(e.Command.ChatMessage.DisplayName, CleanArgs(e.Command.ArgumentsAsString));
         }
 
         private string CleanArgs(string argumentsAsString)
@@ -178,7 +215,20 @@ namespace TF2SpectatorWin
             return argumentsAsString;
         }
 
-        public Dictionary<string, ChatCommandDetails> ChatCommands
+        public void AddCommand(ChatCommandDetails chatCommandDetails)
+        {
+            AddCommand(chatCommandDetails.Command, chatCommandDetails);
+        }
+
+        public void AddCommand(string alias, ChatCommandDetails chatCommandDetails)
+        {
+            if (ChatCommands == null)
+                ChatCommands = new Dictionary<string, ChatCommandDetails>();
+
+            ChatCommands.Add(alias.ToLower(), chatCommandDetails);
+        }
+
+        private Dictionary<string, ChatCommandDetails> ChatCommands
         { get; set; } = new Dictionary<string, ChatCommandDetails>();
 
         private ChatCommandDetails GetRedeemCommand(string commandText)
@@ -197,8 +247,9 @@ namespace TF2SpectatorWin
         {
             if (commandText == null)
                 return null;
+
             if (commandText == "help" || commandText == "commands")
-                return new ChatCommandDetails("!help", HelpCommand, "this help command. Include a command name for help on that command");
+                return new ChatCommandDetails("!help", HelpCommand, "this help command. \"!help commandName\" for help on that command");
 
             string key = "!" + commandText.ToLower();
             if (ChatCommands.ContainsKey(key))
@@ -207,36 +258,102 @@ namespace TF2SpectatorWin
             return null;
         }
 
-        private void HelpCommand(string arguments)
+        private void HelpCommand(string userDisplayName, string arguments)
         {
             string message;
             if (string.IsNullOrEmpty(arguments))
             {
-                message = "available commands (\"!help commandname\" for more info): ";
+                message = "\"!help commandname\" for more info on these commands: ";
                 foreach (string key in ChatCommands.Keys)
                     if (key.StartsWith("!"))
-                        message += " " + key;
+                        message += " " + GetMatchingCommandName(key);
             }
             else
             {
                 if (arguments.StartsWith("!"))
                     arguments = arguments.Substring(1);
                 ChatCommandDetails com = GetCommand(arguments.Trim());
-                if (com == null) return;
+                if (com == null)
+                    return;
 
                 string help = com.Help;
                 if (string.IsNullOrEmpty(help))
                     help = "?";
 
-                message = com.Command + ": " + help;
+                if (!("!" + arguments.ToLower()).Contains(com.Command.ToLower()))
+                    message = "(alias for) ";
+                else
+                    message = "";
+                message += com.Command + ": " + help;
             }
 
-            client.SendMessage(TwitchUsername, message);
+            SendMessageWithWrapping(message);
+        }
+
+        private string GetMatchingCommandName(string key)
+        {
+            string name = ChatCommands[key].Command;
+            if (key.ToLower() != name.ToLower())
+                name = ChatCommands[key].Aliases.FirstOrDefault((n) => n.ToLower() == key.ToLower()) ?? name;
+
+            return name;
+        }
+
+        // per an error I got...
+        public readonly int TwitchMaxMessageLength = 500;
+        /// <summary>
+        /// Sends one or more messages, accounting for max allowed message length.
+        /// </summary>
+        /// <param name="message"></param>
+        public void SendMessageWithWrapping(string message)
+        {
+            string[] messages = SplitMessage(message);
+            foreach (string msg in messages)
+                if (client == null || !client.JoinedChannels.Any())
+                    Console.WriteLine(msg);
+                else
+                    client.SendMessage(TwitchUsername, msg);
+        }
+
+        private string[] SplitMessage(string message)
+        {
+            List<string> messages = new List<string>();
+            while (message.Length > TwitchMaxMessageLength)
+            {
+                int len = GetNextBreakLength(message);
+
+                messages.Add(message.Substring(0, len).TrimEnd());
+                message = message.Substring(len).TrimStart();
+            }
+            messages.Add(message);
+            return messages.ToArray();
+        }
+
+        private int GetNextBreakLength(string message)
+        {
+            int idx = message.Substring(0, TwitchMaxMessageLength)
+                .LastIndexOfAny(new[] { ' ', '-', '\t', '\n', '\r' });
+            return idx >= 0 
+                ? idx + 1 
+                : TwitchMaxMessageLength;
         }
 
         private void Client_OnLog(object sender, OnLogArgs e)
         {
             Console.WriteLine($"{e.DateTime.ToString()}: {e.BotUsername} - {e.Data}");
+        }
+
+        private void Client_OnSendReceiveData(object sender, OnSendReceiveDataArgs e)
+        {
+            //Received - @badge-info=subscriber/1;badges=broadcaster/1,subscriber/0;color=#2E8B57;custom-reward-id=cbabba18-d1ec-44ca-9e30-59303812a600;display-name=id_rotatcepS;emotes=;first-msg=0;flags=;id=17374374-de7f-4f82-bb54-c61c7a5ed19f;mod=0;returning-chatter=0;room-id=491942603;subscriber=1;tmi-sent-ts=1703397616900;turbo=0;user-id=491942603;user-type= :id_rotatceps!id_rotatceps@id_rotatceps.tmi.twitch.tv PRIVMSG #id_rotatceps :sdf
+
+            Console.WriteLine($"{e.Direction.ToString()} - {e.Data}");
+        }
+
+        private void Client_OnUnaccountedFor(object sender, OnUnaccountedForArgs e)
+        {
+
+             Console.WriteLine($"{e.BotUsername} - {e.RawIRC}");
         }
 
         private void Client_OnConnected(object sender, OnConnectedArgs e)
@@ -253,10 +370,31 @@ namespace TF2SpectatorWin
 
         private void Client_OnMessageReceived(object sender, OnMessageReceivedArgs e)
         {
-            //Console.WriteLine(e.ChatMessage.Channel+" MESSAGE:"+
-            //    e.ChatMessage.BotUsername + "got from " + e.ChatMessage.Username + "message: " + e.ChatMessage.Message);
+            //id_rotatceps MESSAGE:id_rotatcepsgot from id_rotatcepsmessage: sdf
+            // "hack" redeem commands - must have the reward id as an alias.
+            if (e.ChatMessage.CustomRewardId != null)
+            {
+                OnCustomRewardIdChatMessage(e);
+            }
+
+            Console.WriteLine(e.ChatMessage.Channel + " MESSAGE:" +
+                e.ChatMessage.BotUsername + "got from " + e.ChatMessage.Username + "message: " + e.ChatMessage.Message 
+                +" reward:"+ e.ChatMessage.CustomRewardId);
             //if (e.ChatMessage.Message.Contains("badword"))
             //    client.TimeoutUser(e.ChatMessage.Channel, e.ChatMessage.Username, TimeSpan.FromMinutes(30), "Bad word! 30 minute timeout!");
+        }
+
+        private void OnCustomRewardIdChatMessage(OnMessageReceivedArgs e)
+        {
+            ChatCommandDetails rewardCommand = GetRedeemCommand(e.ChatMessage.CustomRewardId);
+            if (rewardCommand == null)
+            {
+                Console.WriteLine("UNACCOUNTED FOR REWARD ID: " + e.ChatMessage.CustomRewardId + " : " + e.ChatMessage.Message);
+            }
+            else
+            {
+                rewardCommand.Action?.Invoke(e.ChatMessage.Username, CleanArgs(e.ChatMessage.Message));
+            }
         }
 
         private void Client_OnWhisperReceived(object sender, OnWhisperReceivedArgs e)

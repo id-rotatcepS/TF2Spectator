@@ -4,7 +4,7 @@ namespace TF2SpectatorWin
 {
     public class ChatCommandDetails
     {
-        public delegate void ChatCommand(string arguments);
+        public delegate void ChatCommand(string userDisplayName, string arguments);
 
         public ChatCommandDetails(string command, ChatCommand commandAction, string helpText)
         {
