@@ -50,23 +50,41 @@
 
           </Menu>
 
-        <Expander Header="TF2 (Rcon)" IsExpanded="True">
+        <Expander Header="TF2 (Rcon connection)" IsExpanded="{Binding TF2Expanded}">
           <StackPanel>
             <StackPanel Orientation="Horizontal">
 
-              <Label Content="Rcon Password:"/>
-              <TextBox x:Name="rconPass" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" Width="120"
-                     Text="{Binding RconPassword}"/>
-              <Label Content="Port:"/>
-              <TextBox x:Name="rconPort" HorizontalAlignment="Left" Height="23"  VerticalAlignment="Top" Width="60"
-                     Text="{Binding RconPort}"/>
+                <Label Content="Rcon Password:" ToolTip="set to anything if launching TF2 from here"/>
+                <TextBox x:Name="rconPass" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" Width="120"
+                         Text="{Binding RconPassword}"/>
+
+                <Label Content="Port:"  ToolTip="set to anything if launching TF2 from here"/>
+                <TextBox x:Name="rconPort" HorizontalAlignment="Left" Height="23"  VerticalAlignment="Top" Width="60"
+                         Text="{Binding RconPort}"/>
+
+                </StackPanel>
+                <Separator />
+                <StackPanel Orientation="Horizontal">
+                    
+                    <Label Content="tf2 bot detector logs:" ToolTip="Auto-fills Rcon if you run tf2_bot_detector"/>
+                    <TextBox x:Name="tbdlogs" Height="23" VerticalAlignment="Top" HorizontalAlignment="Stretch"  MinWidth="400"
+                         Text="{Binding BotDetectorLog}" TextAlignment="Right"
+                         ToolTip="Auto-fills Rcon if you run tf2_bot_detector - set using its folder ...\TF2 Bot Detector\logs"/>
+                
+                </StackPanel>
+                <Label Content="... or ..."/>
+                <StackPanel Orientation="Horizontal">
+                    
+                    <Button x:Name="start" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" Width="75"
+                            Content="(Launch TF2)" Command="{Binding LaunchCommand}"
+                            ToolTip="Starts TF2 using these settings - DON'T Click if using tf2_bot_detector, instead set the TF2BD logs folder to share its settings"/>
+                    <Label Content="from"/>
+                    <TextBox x:Name="tf2" HorizontalAlignment="Stretch" Height="23"  TextWrapping="Wrap" VerticalAlignment="Top" MinWidth="400"
+                             Text="{Binding TF2Path}"
+                             ToolTip="Path to the steamapps\common\Team Fortress 2 - this button launches hl2.exe from there with special settings"/>
+                    
+                </StackPanel>
             </StackPanel>
-            <Button x:Name="start" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" Width="75"
-                    Content="(Launch TF2)" Command="{Binding LaunchCommand}"
-                    ToolTip="Starts TF2 using these settings - Don't Click if using tf2_bot_detector - open its latest log after launch, search for 'rcon_password' and 'hostport' to set here, but DON'T click this button."/>
-            <TextBox x:Name="tf2" HorizontalAlignment="Stretch" Height="23"  TextWrapping="Wrap" VerticalAlignment="Top"
-                   Text="{Binding TF2Path}"/>
-          </StackPanel>
         </Expander>
 
         <Expander IsExpanded="False">
@@ -129,7 +147,7 @@
         
         <Expander Header="Log (newest on top)" IsExpanded="True">
           <TextBox x:Name="log" HorizontalAlignment="Left" Height="70"  TextWrapping="Wrap" VerticalAlignment="Top" Width="700"
-                     Text="{Binding CommandLog}"/>
+                     Text="{Binding CommandLog}" VerticalScrollBarVisibility="Auto"/>
         </Expander>
 
       </StackPanel>

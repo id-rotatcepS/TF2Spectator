@@ -26,6 +26,10 @@ namespace TF2SpectatorWin
         public TF2WindowsViewModel()
         {
             InitFromConfig();
+
+            // hide tf2 unless they've configured the launch button or haven't configured anything.
+            TF2Expanded = !string.IsNullOrEmpty(TF2Path) 
+                || string.IsNullOrEmpty(BotDetectorLog);
         }
 
         private void InitFromConfig()
@@ -75,8 +79,7 @@ namespace TF2SpectatorWin
 
             content.AppendLine(RconPassword);
             content.AppendLine(RconPort.ToString());
-            if (!string.IsNullOrEmpty(BotDetectorLog?.Trim()))
-                content.AppendLine(BotDetectorLog);
+            content.AppendLine(BotDetectorLog);
 
             try
             {
@@ -123,6 +126,9 @@ namespace TF2SpectatorWin
                 return null;
             }
         }
+
+        public bool TF2Expanded { get; set; }
+
         private static TwitchInstance _twitch = null;
 
         public bool IsTwitchConnected => _twitch != null;
@@ -332,13 +338,19 @@ namespace TF2SpectatorWin
         }
 
         #region bot detector log handler
+        private string _logFolder = string.Empty;
         /// <summary>
         /// path to the folder containing the tf2_bot_detector general log files that include the launch parameters that contain the randomized password and port.
         /// </summary>
         public string BotDetectorLog
         {
-            get; set;
-        } = string.Empty;
+            get => _logFolder;
+            set
+            {
+                _logFolder = value?.Trim();
+                ViewNotification(nameof(BotDetectorLog));
+            }
+        }
 
         private static readonly string BotDetectorLogPattern = "*.log";
         private FileSystemWatcher watcher;
@@ -396,7 +408,7 @@ namespace TF2SpectatorWin
                 string pass = rconMatch.Groups[1].Value;
                 string port = rconMatch.Groups[2].Value;
 
-                AddLog("Parsed bot detector rcon: " + pass + " " + port);
+                AddLog("Loading bot detector Rcon settings: " + pass + " " + port);
                 RconPassword = pass;
                 RconPort = ushort.Parse(port);
 
