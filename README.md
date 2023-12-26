@@ -7,6 +7,12 @@ Links Twitch channel commands to TF2 console commands using the Rcon port.
 
 Create/Edit the TF2SpectatorCommands.tsv file to use custom stuff. e.g.:<br/>
 <pre>
-!command&lt;tab&gt;console command with {0} substitution from command arg&lt;tab&gt;help text when chat types !help command
+!command&lt;tab&gt;console command with {0} and {1} substitutions from user id and command arg&lt;tab&gt;help text when chat types !help command
 !com2|aliasCom2&lt;tab&gt;console command&lt;tab&gt;help text for both com2 and its alias
+ababba18-d1ec-44ca-9e30-89303812a601&lt;tab&gt;redeemed command with {0} user and {1} args
 </pre>
+Until title-based redeems are working, you have to use the reward id as a command name or alias.  
+One way to get that is "inspect" an edit button of the item in the rewards editor...
+![image](https://github.com/id-rotatcepS/TF2Spectator/assets/66532903/2244fcb6-b593-46b8-9882-33f231967699)
+
+and find the value of data-reward-id
