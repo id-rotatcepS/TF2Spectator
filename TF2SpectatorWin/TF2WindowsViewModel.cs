@@ -61,6 +61,7 @@ namespace TF2SpectatorWin
             {
                 AddLog(ex.Message);
             }
+            BotDetectorLog = lines.Length > 5 ? lines[5] : string.Empty;
         }
 
         private void SaveConfig()
@@ -74,6 +75,8 @@ namespace TF2SpectatorWin
 
             content.AppendLine(RconPassword);
             content.AppendLine(RconPort.ToString());
+            if (!string.IsNullOrEmpty(BotDetectorLog?.Trim()))
+                content.AppendLine(BotDetectorLog);
 
             try
             {
@@ -152,6 +155,8 @@ namespace TF2SpectatorWin
                 twitch.AddCommand("cbabba18-d1ec-44ca-9e30-59303812a600", classSelection);
 
                 LoadCommandConfiguration(twitch);
+
+                WatchTBDLogFolder();
                 
                 return twitch;
             }
@@ -166,6 +171,8 @@ namespace TF2SpectatorWin
                 ViewNotification(nameof(AuthToken));
             }
         }
+
+        #region command configuration
 
         private void LoadCommandConfiguration(TwitchInstance twitch)
         {
@@ -227,7 +234,7 @@ namespace TF2SpectatorWin
         }
 
         //read from a file, use this as backup
-        string commandConfig =
+        private static readonly string commandConfig =
             "!vrmode" + CommandSeparator + "cl_first_person_uses_world_model 1;wait 20000;cl_first_person_uses_world_model 0" + CommandSeparator + "turns on VR mode for a few minutes\n" +
             "!burninggibs" + CommandSeparator + "cl_burninggibs 1;wait 20000;cl_burninggibs 0" + CommandSeparator + "turns on burning gibs for a few minutes\n" +
             "!showposition" + CommandSeparator + "cl_showpos 1;wait 20000;cl_showpos 0" + CommandSeparator + "turns on game position info for a few minutes\n" +
@@ -242,15 +249,15 @@ namespace TF2SpectatorWin
             "!hiderate|hiderate" + CommandSeparator + "cl_showfps 0;wait 20000;cl_showfps 1" + CommandSeparator + "turns off the game fps display for a few minutes\n" +
             "!boring" + CommandSeparator + "cl_hud_playerclass_use_playermodel 0;wait 20000;cl_hud_playerclass_use_playermodel 1" + CommandSeparator + "turns off the 3d playermodel for a few minutes\n";
 
-        private Regex scout = new Regex("scout|Jeremy|scunt|baby|1", RegexOptions.IgnoreCase);
-        private Regex soldier = new Regex("soldier|Jane|Doe|solly|2", RegexOptions.IgnoreCase);
-        private Regex pyro = new Regex("pyro|pybro|flyro|3", RegexOptions.IgnoreCase);
-        private Regex demo = new Regex("demo|Tavish|DeGroot|explo|4", RegexOptions.IgnoreCase);
-        private Regex heavy = new Regex("heavy|Mikhail|Misha|hoovy|fat|5", RegexOptions.IgnoreCase);
-        private Regex engi = new Regex("engi|Dell|Conagher|6", RegexOptions.IgnoreCase);
-        private Regex medic = new Regex("medic|Ludwig|Humboldt|7", RegexOptions.IgnoreCase);
-        private Regex sniper = new Regex("sniper|Mick|Mundy|8", RegexOptions.IgnoreCase);
-        private Regex spy = new Regex("spy|french|france|9", RegexOptions.IgnoreCase);
+        private static readonly Regex scout = new Regex("scout|Jeremy|scunt|baby|1", RegexOptions.IgnoreCase);
+        private static readonly Regex soldier = new Regex("soldier|Jane|Doe|solly|2", RegexOptions.IgnoreCase);
+        private static readonly Regex pyro = new Regex("pyro|pybro|flyro|3", RegexOptions.IgnoreCase);
+        private static readonly Regex demo = new Regex("demo|Tavish|DeGroot|explo|4", RegexOptions.IgnoreCase);
+        private static readonly Regex heavy = new Regex("heavy|Mikhail|Misha|hoovy|fat|5", RegexOptions.IgnoreCase);
+        private static readonly Regex engi = new Regex("engi|Dell|Conagher|6", RegexOptions.IgnoreCase);
+        private static readonly Regex medic = new Regex("medic|Ludwig|Humboldt|7", RegexOptions.IgnoreCase);
+        private static readonly Regex sniper = new Regex("sniper|Mick|Mundy|8", RegexOptions.IgnoreCase);
+        private static readonly Regex spy = new Regex("spy|french|france|9", RegexOptions.IgnoreCase);
         private void RedeemClass(string userDisplayName, string arguments)
         {
             // in order of my preference - if they give me somethign ambiguous it gets the first one on this list.
@@ -285,10 +292,12 @@ namespace TF2SpectatorWin
         {
             if (string.IsNullOrEmpty(argumentsAsString))
                 return argumentsAsString;
+
             return argumentsAsString
                 .Replace("\"", "")
                 .Replace(';', ',');
         }
+        #endregion command configuration
 
         public string RconPassword
         {
@@ -297,6 +306,7 @@ namespace TF2SpectatorWin
             {
                 TF2Instance.rconPassword = value?.Trim();
                 _tf2 = null;
+                ViewNotification(nameof(RconPassword));
                 ViewNotification(nameof(IsTF2Connected));
             }
         }
@@ -307,6 +317,7 @@ namespace TF2SpectatorWin
             {
                 TF2Instance.rconPort = value;
                 _tf2 = null;
+                ViewNotification(nameof(RconPort));
                 ViewNotification(nameof(IsTF2Connected));
             }
         }
@@ -319,6 +330,135 @@ namespace TF2SpectatorWin
                 // no impact on rcon instance (no _tf2 = null;)
             }
         }
+
+        #region bot detector log handler
+        /// <summary>
+        /// path to the folder containing the tf2_bot_detector general log files that include the launch parameters that contain the randomized password and port.
+        /// </summary>
+        public string BotDetectorLog
+        {
+            get; set;
+        } = string.Empty;
+
+        private static readonly string BotDetectorLogPattern = "*.log";
+        private FileSystemWatcher watcher;
+        /// <summary>
+        /// watch tf2_bot_detector log folder for a new file, scan it for rcon port/password, and set those values.
+        /// </summary>
+        private void WatchTBDLogFolder()
+        {
+            try
+            {
+                DisposeOldWatcher();
+            }
+            catch
+            {
+                // don't care, just make a new one.
+            }
+
+            if (string.IsNullOrEmpty(BotDetectorLog))
+                return;
+
+            // First, process the most recent file, then watch for new ones.
+            try
+            {
+                ParseTBDLogRconValues(GetMostRecentTBDLogFile());
+            }
+            catch
+            {
+                // processing most recent failed (maybe there wasn't one)... no problem, we'll just process the first one that pops up.
+            }
+
+            try
+            {
+                StartNewWatcher();
+            }
+            catch (Exception ex)
+            {
+                AddLog("Error trying to watch bot detector logs: " + ex.Message);
+            }
+        }
+
+        // [20:14:56] Processes.cpp(286):Launch: ShellExecute("S:\\Games\\SteamLibrary\\steamapps\\common\\Team Fortress 2\\tf\\..\\hl2.exe", -novid -nojoy -nosteamcontroller -nohltv -particles 1 -precachefontchars -noquicktime dummy -game tf -steam -secure -usercon -high +developer 1 +alias developer +contimes 0 +alias contimes +ip 0.0.0.0 +alias ip +sv_rcon_whitelist_address 127.0.0.1 +alias sv_rcon_whitelist_address +sv_quota_stringcmdspersecond 1000000 +alias sv_quota_stringcmdspersecond +rcon_password xBTQ69yZ61Rb719F +alias rcon_password +hostport 40537 +alias hostport +alias cl_reload_localization_files +net_start +con_timestamp 1 +alias con_timestamp -condebug -conclearlog) (elevated = false)
+        // specifically "+rcon_password xBTQ69yZ61Rb719F +alias rcon_password +hostport 40537 +alias hostport"
+        private static readonly Regex TBDRconMatcher = new Regex(@"\+rcon_password\s+(\S+)\s+.*\+hostport\s+(\d+)\s+");
+        private void ParseTBDLogRconValues(string fullPath)
+        {
+            foreach(string line in File.ReadLines(fullPath))
+            {
+                Match rconMatch = TBDRconMatcher.Match(line);
+                if (!rconMatch.Success)
+                    continue;
+
+                // Reminders:
+                // Groups contains the last $0 $1 etc.  Captures contains any earlier group matches before the last one.
+                // Group 0 is $0 which is the whole string that matched the regex.
+                string pass = rconMatch.Groups[1].Value;
+                string port = rconMatch.Groups[2].Value;
+
+                AddLog("Parsed bot detector rcon: " + pass + " " + port);
+                RconPassword = pass;
+                RconPort = ushort.Parse(port);
+
+                break;
+            }
+        }
+
+        private string GetMostRecentTBDLogFile()
+        {
+            return Directory.EnumerateFiles(BotDetectorLog, BotDetectorLogPattern)
+                .OrderByDescending(s => File.GetCreationTime(
+                    Path.Combine(BotDetectorLog, s)))
+                .First();
+        }
+
+        private void DisposeOldWatcher()
+        {
+            if (watcher == null)
+                return;
+
+            // probably unnecessary
+            watcher.EnableRaisingEvents = false;
+            watcher.Dispose();
+        }
+
+        private void StartNewWatcher()
+        {
+            watcher = new FileSystemWatcher(BotDetectorLog)
+            {
+                Filter = BotDetectorLogPattern,
+
+                NotifyFilter = NotifyFilters.FileName
+                                 | NotifyFilters.CreationTime,
+            };
+            watcher.Created += ParseCreatedTBDLogOrSayWhyNot;
+            watcher.Error += NotifyErrorAndRestartWatcher;
+
+            watcher.EnableRaisingEvents = true;
+        }
+
+        private void ParseCreatedTBDLogOrSayWhyNot(object sender, FileSystemEventArgs e)
+        {
+            try
+            {
+                ParseTBDLogRconValues(e.FullPath);
+            }
+            catch (Exception ex)
+            {
+                AddLog("Error parsing bot detector log: " + ex.Message);
+            }
+        }
+
+        private void NotifyErrorAndRestartWatcher(object sender, ErrorEventArgs e)
+        {
+            // reset the watcher.
+            //TODO prevent a constant error loop.
+            AddLog("Error watching TBD Logs: " + e.GetException()?.Message);
+            WatchTBDLogFolder();
+        }
+
+        #endregion bot detector log handler
+
         private string _username = string.Empty;
         public string TwitchUsername
         {
