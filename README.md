@@ -1,8 +1,8 @@
-Links Twitch channel commands to TF2 console commands using the Rcon port.
+Links your Twitch channel commands to TF2 console commands using the Rcon port.
 * Launch
 * enter your channel/username ID
 * link to twitch (First time it will launch authorization sequence, then save a token for future linking)
-* set an Rcon port and password and Launch TF2 (or launch tf2_bot_detector, check its logs, and copy its randomly-generated port and password to share the port with both apps)
+* set an Rcon port and password and Launch TF2 (or use pazer's tf2_bot_detector and find its logs folder for configuration to automatically share its randomly-generated port and password)
 * enjoy!
 
 Create/Edit the TF2SpectatorCommands.tsv file to use custom stuff. e.g.:<br/>

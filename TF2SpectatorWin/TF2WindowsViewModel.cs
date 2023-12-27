@@ -6,8 +6,8 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Windows.Input;
-
 using TF2FrameworkInterface;
 
 namespace TF2SpectatorWin
@@ -376,8 +376,9 @@ namespace TF2SpectatorWin
             {
                 ParseTBDLogRconValues(GetMostRecentTBDLogFile());
             }
-            catch
+            catch (Exception ex)
             {
+                AddLog("Could not parse bot detector log yet: " + ex.Message);
                 // processing most recent failed (maybe there wasn't one)... no problem, we'll just process the first one that pops up.
             }
 
@@ -387,32 +388,45 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                AddLog("Error trying to watch bot detector logs: " + ex.Message);
+                AddLog("Error trying to watch bot detector logs (will not automatically configure): " + ex.Message);
             }
         }
 
         // [20:14:56] Processes.cpp(286):Launch: ShellExecute("S:\\Games\\SteamLibrary\\steamapps\\common\\Team Fortress 2\\tf\\..\\hl2.exe", -novid -nojoy -nosteamcontroller -nohltv -particles 1 -precachefontchars -noquicktime dummy -game tf -steam -secure -usercon -high +developer 1 +alias developer +contimes 0 +alias contimes +ip 0.0.0.0 +alias ip +sv_rcon_whitelist_address 127.0.0.1 +alias sv_rcon_whitelist_address +sv_quota_stringcmdspersecond 1000000 +alias sv_quota_stringcmdspersecond +rcon_password xBTQ69yZ61Rb719F +alias rcon_password +hostport 40537 +alias hostport +alias cl_reload_localization_files +net_start +con_timestamp 1 +alias con_timestamp -condebug -conclearlog) (elevated = false)
         // specifically "+rcon_password xBTQ69yZ61Rb719F +alias rcon_password +hostport 40537 +alias hostport"
         private static readonly Regex TBDRconMatcher = new Regex(@"\+rcon_password\s+(\S+)\s+.*\+hostport\s+(\d+)\s+");
+        /// <summary>
+        /// Try once to read the given log file (possibly still open for writing) for the Rcon configuration information.
+        /// </summary>
+        /// <param name="fullPath"></param>
+        /// <exception cref="InvalidOperationException">config line was not found in the file (so far)</exception>
         private void ParseTBDLogRconValues(string fullPath)
         {
-            foreach(string line in File.ReadLines(fullPath))
+            // access the log file while it is being written.
+            using (FileStream stream = File.Open(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (StreamReader reader = new StreamReader(stream))
             {
-                Match rconMatch = TBDRconMatcher.Match(line);
-                if (!rconMatch.Success)
-                    continue;
+                while (!reader.EndOfStream)
+                {
+                    string line = reader.ReadLine();
 
-                // Reminders:
-                // Groups contains the last $0 $1 etc.  Captures contains any earlier group matches before the last one.
-                // Group 0 is $0 which is the whole string that matched the regex.
-                string pass = rconMatch.Groups[1].Value;
-                string port = rconMatch.Groups[2].Value;
+                    Match rconMatch = TBDRconMatcher.Match(line);
+                    if (!rconMatch.Success)
+                        continue;
 
-                AddLog("Loading bot detector Rcon settings: " + pass + " " + port);
-                RconPassword = pass;
-                RconPort = ushort.Parse(port);
+                    // Reminders:
+                    // Groups contains the last $0 $1 etc.  Captures contains any earlier group matches before the last one.
+                    // Group 0 is $0 which is the whole string that matched the regex.
+                    string pass = rconMatch.Groups[1].Value;
+                    string port = rconMatch.Groups[2].Value;
 
-                break;
+                    AddLog("Loading bot detector Rcon settings: " + pass + " " + port);
+                    RconPassword = pass;
+                    RconPort = ushort.Parse(port);
+
+                    return;
+                }
+                throw new InvalidOperationException("config not found");
             }
         }
 
@@ -443,13 +457,13 @@ namespace TF2SpectatorWin
                 NotifyFilter = NotifyFilters.FileName
                                  | NotifyFilters.CreationTime,
             };
-            watcher.Created += ParseCreatedTBDLogOrSayWhyNot;
+            watcher.Created += ParseCreatedTBDLogAndKeepTrying;
             watcher.Error += NotifyErrorAndRestartWatcher;
 
             watcher.EnableRaisingEvents = true;
         }
 
-        private void ParseCreatedTBDLogOrSayWhyNot(object sender, FileSystemEventArgs e)
+        private void ParseCreatedTBDLogAndKeepTrying(object sender, FileSystemEventArgs e)
         {
             try
             {
@@ -458,6 +472,15 @@ namespace TF2SpectatorWin
             catch (Exception ex)
             {
                 AddLog("Error parsing bot detector log: " + ex.Message);
+                // retry
+                // TODO prevent infinite loop?
+                App.Current.Dispatcher.BeginInvoke(
+                    new Action(() =>
+                    {
+                        AddLog("trying again");
+                        Thread.Sleep(1000); 
+                        ParseCreatedTBDLogAndKeepTrying(sender, e);
+                    }));
             }
         }
 
@@ -542,7 +565,14 @@ namespace TF2SpectatorWin
         {
             try
             {
-                AddLog("Connected Twitch: " + Twitch?.TwitchUsername);
+                if (IsTwitchConnected)
+                {
+                    _twitch = null;
+                    AddLog("Disconnected Twitch");
+                    ViewNotification(nameof(IsTwitchConnected));
+                }
+                else
+                    AddLog("Connected Twitch: " + Twitch?.TwitchUsername);
             }
             catch (Exception e)
             {
