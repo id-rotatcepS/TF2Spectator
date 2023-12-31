@@ -12,177 +12,87 @@ using TwitchLib.Client.Models;
 using TwitchLib.Communication.Clients;
 using TwitchLib.Communication.Models;
 using TwitchLib.PubSub;
+using TwitchLib.PubSub.Models.Responses.Messages.Redemption;
 
 namespace TF2SpectatorWin
 {
 
     public class TwitchInstance
     {
-        private const string ReadRewardRedemptions = "channel:read:redemptions";
-        //Get Custom Reward
-        //Get Custom Reward Redemption
-
-        //"channel:manage:redemptions",
-        //Create Custom Rewards
-        //Delete Custom Reward
-        //Update Custom Reward
-        //Update Redemption Status
-
-        /*
-            analytics:read:extensions 	View analytics data for the Twitch Extensions owned by the authenticated account.
-            analytics:read:games 	View analytics data for the games owned by the authenticated account.
-            bits:read 	View Bits information for a channel.
-            channel:manage:ads 	Manage ads schedule on a channel.
-            channel:read:ads 	Read the ads schedule and details on your channel.
-            channel:manage:broadcast 	Manage a channel’s broadcast configuration, including updating channel configuration and managing stream markers and stream tags.
-            channel:read:charity 	Read charity campaign details and user donations on your channel.
-            channel:edit:commercial 	Run commercials on a channel.
-            channel:read:editors 	View a list of users with the editor role for a channel.
-            channel:manage:extensions 	Manage a channel’s Extension configuration, including activating Extensions.
-            channel:read:goals 	View Creator Goals for a channel.
-            channel:read:guest_star 	Read Guest Star details for your channel.
-            channel:manage:guest_star 	Manage Guest Star for your channel.
-            channel:read:hype_train 	View Hype Train information for a channel.
-            channel:manage:moderators 	Add or remove the moderator role from users in your channel.
-            channel:read:polls 	View a channel’s polls.
-            channel:manage:polls 	Manage a channel’s polls.
-            channel:read:predictions 	View a channel’s Channel Points Predictions.
-            channel:manage:predictions 	Manage of channel’s Channel Points Predictions
-            channel:manage:raids 	Manage a channel raiding another channel.
-            channel:read:redemptions 	View Channel Points custom rewards and their redemptions on a channel.
-            channel:manage:redemptions 	Manage Channel Points custom rewards and their redemptions on a channel.
-            channel:manage:schedule 	Manage a channel’s stream schedule.
-            channel:read:stream_key 	View an authorized user’s stream key.
-            channel:read:subscriptions 	View a list of all subscribers to a channel and check if a user is subscribed to a channel.
-            channel:manage:videos 	Manage a channel’s videos, including deleting videos.
-            channel:read:vips 	Read the list of VIPs in your channel.
-            channel:manage:vips 	Add or remove the VIP role from users in your channel.
-            clips:edit 	Manage Clips for a channel.
-            moderation:read 	View a channel’s moderation data including Moderators, Bans, Timeouts, and Automod settings.
-            moderator:manage:announcements 	Send announcements in channels where you have the moderator role.
-            moderator:manage:automod 	Manage messages held for review by AutoMod in channels where you are a moderator.
-            moderator:read:automod_settings 	View a broadcaster’s AutoMod settings.
-            moderator:manage:automod_settings 	Manage a broadcaster’s AutoMod settings.
-            moderator:manage:banned_users 	Ban and unban users.
-            moderator:read:blocked_terms 	View a broadcaster’s list of blocked terms.
-            moderator:manage:blocked_terms 	Manage a broadcaster’s list of blocked terms.
-            moderator:manage:chat_messages 	Delete chat messages in channels where you have the moderator role
-            moderator:read:chat_settings 	View a broadcaster’s chat room settings.
-            moderator:manage:chat_settings 	Manage a broadcaster’s chat room settings.
-            moderator:read:chatters 	View the chatters in a broadcaster’s chat room.
-            moderator:read:followers 	Read the followers of a broadcaster.
-            moderator:read:guest_star 	Read Guest Star details for channels where you are a Guest Star moderator.
-            moderator:manage:guest_star 	Manage Guest Star for channels where you are a Guest Star moderator.
-            moderator:read:shield_mode 	View a broadcaster’s Shield Mode status.
-            moderator:manage:shield_mode 	Manage a broadcaster’s Shield Mode status.
-            moderator:read:shoutouts 	View a broadcaster’s shoutouts.
-            moderator:manage:shoutouts 	Manage a broadcaster’s shoutouts.
-            user:edit 	Manage a user object.
-            user:edit:follows 	Deprecated. Was previously used for “Create User Follows” and “Delete User Follows.” See Deprecation of Create and Delete Follows API Endpoints.
-            user:read:blocked_users 	View the block list of a user.
-            user:manage:blocked_users 	Manage the block list of a user.
-            user:read:broadcast 	View a user’s broadcasting configuration, including Extension configurations.
-            user:manage:chat_color 	Update the color used for the user’s name in chat.Update User Chat Color
-            user:read:email 	View a user’s email address.
-            user:read:follows 	View the list of channels a user follows.
-            user:read:subscriptions 	View if an authorized user is subscribed to specific channels.
-            user:manage:whispers 	Read whispers that you send and receive, and send whispers on your behalf.
-         */
-        /*
-         Chat and PubSub scopes
-            Scope Name 	Type of Access
-            channel:bot 	Allows the client’s bot users access to a channel.
-            channel:moderate 	Perform moderation actions in a channel. The user requesting the scope must be a moderator in the channel.
-            chat:edit 	Send live stream chat messages.
-            chat:read 	View live stream chat messages.
-            user:bot 	Allows client’s bot to act as this user.
-            user:read:chat 	View live stream chat and room messages.
-            whispers:read 	View your whisper messages.
-            whispers:edit 	Send whisper messages.
-         */
-        // --- I'm pretty sure the TwitchLib command handler must require chat:read
-        private const string ChatRead = "chat:read";
-        private const string ChatSend = "chat:edit";
-
         private const string ClientID = "xvco4mzu0kr55ah5gr2xxyefx0kvbc";
+
         public readonly string TwitchUsername;
 
         // https://dev.twitch.tv/docs/authentication/scopes/
         public string[] ClientOAuthScopes =>
             new[]
             {
-                ReadRewardRedemptions,
-                ChatRead,
-                ChatSend,
+                TwitchImplicitOAuth.ReadRewardRedemptions,
+                // --- I'm pretty sure the TwitchLib command handler must require chat:read
+                TwitchImplicitOAuth.ChatRead,
+                TwitchImplicitOAuth.ChatSend,
             };
 
-        private TwitchClient client;
-        private TwitchPubSub pubsub;
+        private TwitchClient Client;
+        private TwitchPubSub Pubsub;
 
-        private User TwitchUser;
+        private readonly User TwitchUser;
+
         /// <summary>
         /// Only affiliate and partner can do redeems.
+        /// (BroadcasterType is "", not "affiliate" or "partner")
         /// </summary>
         public bool HasRedeems => !string.IsNullOrEmpty(TwitchUser?.BroadcasterType);
 
         public static string AuthToken { get; set; } = "";
+
         public TwitchInstance(string twitchUsername)
         {
             TwitchUsername = twitchUsername;
+            AuthToken = GetAuthToken();
 
-            string twitchOAuth = AuthToken;
-            if (string.IsNullOrEmpty(twitchOAuth))
-            {
-                // get the value for the twitchOAuth: "access_token"
-                TwitchImplicitOAuth oauth = new TwitchImplicitOAuth(
-                    //clientName: "TF2SpectatorControl",
-                    clientID: ClientID);
-                // includes redeems in scope even if it's a non-affiliated account
-                OAuthResult listenResult = oauth.Authorize(ClientOAuthScopes);
-                twitchOAuth = listenResult.AccessToken;
+            ConnectionCredentials credentials = new ConnectionCredentials(TwitchUsername, AuthToken);
 
-                AuthToken = twitchOAuth;
-            }
-
-            ConnectionCredentials credentials = new ConnectionCredentials(TwitchUsername, twitchOAuth);
-
-            TwitchAPI twitchAPI = new TwitchAPI();
-            twitchAPI.Settings.ClientId = ClientID;
-            twitchAPI.Settings.AccessToken = AuthToken;
-
-            TwitchUser = new TwitchChannelInfo(twitchAPI, TwitchUsername).GetInfo();
+            TwitchUser = GetTwitchChannelInfo();
 
             StartClient(credentials);
         }
 
+        private string GetAuthToken()
+        {
+            if (!string.IsNullOrEmpty(AuthToken))
+                return AuthToken;
+
+            // get the value for the twitchOAuth: "access_token"
+            TwitchImplicitOAuth oauth = new TwitchImplicitOAuth(
+                //clientName: "TF2SpectatorControl",
+                clientID: ClientID);
+            // includes redeems in scope even if it's a non-affiliated account
+            OAuthResult authResult = oauth.Authorize(ClientOAuthScopes);
+
+            return authResult.AccessToken;
+        }
+
+        private User GetTwitchChannelInfo()
+        {
+            TwitchAPI twitchAPI = new TwitchAPI();
+            twitchAPI.Settings.ClientId = ClientID;
+            twitchAPI.Settings.AccessToken = AuthToken;
+
+            Task<GetUsersResponse> usersTask = twitchAPI.Helix.Users
+                .GetUsersAsync(logins: new List<string>(new string[] {
+                    TwitchUsername
+                }));
+
+            usersTask.Wait();
+
+            GetUsersResponse getUsersResponse = usersTask.Result;
+            return getUsersResponse.Users.First();
+        }
+
         private void StartClient(ConnectionCredentials credentials)
         {
-            // PubSub is only being used for Redemptions, and redemptions are only valid for affiliate/partner accounts.
-            // (The Internet implies we'll get a BADAUTH for attempting this with default accounts)
-            if (HasRedeems)
-            {
-                /*using */
-                ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddConsole());
-                ILogger<TwitchPubSub> logger = factory.CreateLogger<TwitchPubSub>();
-                // hopefully TwitchPubSub disposes the logger?
-                pubsub = new TwitchPubSub(logger);
-                //pubsub.OnLog += Client_OnLog;
-
-                pubsub.OnListenResponse += Pubsub_OnListenResponse;
-                pubsub.ListenToChannelPoints(channelTwitchId: TwitchUser.Id);
-
-                pubsub.OnChannelPointsRewardRedeemed += Pubsub_OnChannelPointsRewardRedeemed;
-
-                // odd pubsub format... connect, within 15 seconds of connection send topics.
-                // TODO pubsub.OnPubSubServiceError pubsub.OnPubSubServiceClosed
-                pubsub.OnPubSubServiceClosed += Pubsub_OnPubSubServiceClosed;
-                pubsub.OnPubSubServiceError += Pubsub_OnPubSubServiceError;
-                pubsub.OnPubSubServiceConnected += (sender, e) =>
-                {
-                    (sender as TwitchPubSub).SendTopics(AuthToken);
-                };
-                pubsub.Connect();
-            }
+            StartPubSubWhenNeeded();
 
             ClientOptions clientOptions = new ClientOptions
             {
@@ -190,22 +100,51 @@ namespace TF2SpectatorWin
                 ThrottlingPeriod = TimeSpan.FromSeconds(30)
             };
             WebSocketClient customClient = new WebSocketClient(clientOptions);
-            client = new TwitchClient(customClient);
-            client.Initialize(credentials, channel: TwitchUsername);
+            Client = new TwitchClient(customClient);
+            Client.Initialize(credentials, channel: TwitchUsername);
 
-            client.OnLog += Client_OnLog;
-            client.OnSendReceiveData += Client_OnSendReceiveData;
-            client.OnUnaccountedFor += Client_OnUnaccountedFor;
-            client.OnConnected += Client_OnConnected;
-            client.OnJoinedChannel += Client_OnJoinedChannel;
+            Client.OnLog += Client_OnLog;
+            Client.OnSendReceiveData += Client_OnSendReceiveData;
+            Client.OnUnaccountedFor += Client_OnUnaccountedFor;
+            Client.OnConnected += Client_OnConnected;
+            Client.OnJoinedChannel += Client_OnJoinedChannel;
 
-            client.OnMessageReceived += Client_OnMessageReceived;
-            client.OnWhisperReceived += Client_OnWhisperReceived;
-            client.OnNewSubscriber += Client_OnNewSubscriber;
+            Client.OnMessageReceived += Client_OnMessageReceived;
+            Client.OnWhisperReceived += Client_OnWhisperReceived;
+            Client.OnNewSubscriber += Client_OnNewSubscriber;
 
-            client.OnChatCommandReceived += Client_OnChatCommandReceived;
+            Client.OnChatCommandReceived += Client_OnChatCommandReceived;
 
-            _ = client.Connect();
+            _ = Client.Connect();
+        }
+
+        private void StartPubSubWhenNeeded()
+        {
+            // PubSub is only being used for Redemptions, and redemptions are only valid for affiliate/partner accounts.
+            // (The Internet implies we'll get a BADAUTH for attempting this with default accounts)
+            if (!HasRedeems)
+                return;
+
+            using (ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddConsole()))
+            {
+                ILogger<TwitchPubSub> logger = factory.CreateLogger<TwitchPubSub>();
+                Pubsub = new TwitchPubSub(logger);
+            }
+            //Pubsub.OnLog += Client_OnLog;
+
+            Pubsub.OnListenResponse += Pubsub_OnListenResponse;
+            Pubsub.ListenToChannelPoints(channelTwitchId: TwitchUser.Id);
+
+            Pubsub.OnChannelPointsRewardRedeemed += Pubsub_OnChannelPointsRewardRedeemed;
+
+            // odd pubsub format... connect, within 15 seconds of connection send topics.
+            Pubsub.OnPubSubServiceClosed += Pubsub_OnPubSubServiceClosed;
+            Pubsub.OnPubSubServiceError += Pubsub_OnPubSubServiceError;
+            Pubsub.OnPubSubServiceConnected += (sender, e) =>
+            {
+                (sender as TwitchPubSub).SendTopics(AuthToken);
+            };
+            Pubsub.Connect();
         }
 
         private void Pubsub_OnPubSubServiceClosed(object sender, EventArgs e)
@@ -225,17 +164,26 @@ namespace TF2SpectatorWin
 
         private void Pubsub_OnChannelPointsRewardRedeemed(object sender, TwitchLib.PubSub.Events.OnChannelPointsRewardRedeemedArgs e)
         {
-            TwitchLib.PubSub.Models.Responses.Messages.Redemption.Redemption redemption = e.RewardRedeemed.Redemption;
-            (GetRedeemCommand(redemption.Reward.Title) 
+            Redemption redemption = e.RewardRedeemed.Redemption;
+            GetRedeemCommandByNameOrID(redemption)
+                ?.Action?.Invoke(
+                    redemption.User.DisplayName,
+                    CleanArgs(redemption.UserInput));// redemption.Reward.Cost
+        }
+
+        private ChatCommandDetails GetRedeemCommandByNameOrID(Redemption redemption)
+        {
+            return GetRedeemCommand(redemption.Reward.Title)
                 // if the title no longer works, maybe they set up the ID as an alias?
-                ?? GetRedeemCommand(redemption.Reward.Id))
-                ?.Action?.Invoke(redemption.User.DisplayName, CleanArgs(redemption.UserInput));// redemption.Reward.Cost
+                ?? GetRedeemCommand(redemption.Reward.Id);
         }
 
         private void Client_OnChatCommandReceived(object sender, OnChatCommandReceivedArgs e)
         {
-            GetCommand(e.Command.CommandText)
-                ?.Action?.Invoke(e.Command.ChatMessage.DisplayName, CleanArgs(e.Command.ArgumentsAsString));
+            GetChatCommand(e.Command.CommandText)
+                ?.Action?.Invoke(
+                    e.Command.ChatMessage.DisplayName,
+                    CleanArgs(e.Command.ArgumentsAsString));
         }
 
         private string CleanArgs(string argumentsAsString)
@@ -271,7 +219,7 @@ namespace TF2SpectatorWin
             return null;
         }
 
-        private ChatCommandDetails GetCommand(string commandText)
+        private ChatCommandDetails GetChatCommand(string commandText)
         {
             if (commandText == null)
                 return null;
@@ -300,7 +248,7 @@ namespace TF2SpectatorWin
             {
                 if (arguments.StartsWith("!"))
                     arguments = arguments.Substring(1);
-                ChatCommandDetails com = GetCommand(arguments.Trim());
+                ChatCommandDetails com = GetChatCommand(arguments.Trim());
                 if (com == null)
                     return;
 
@@ -337,10 +285,10 @@ namespace TF2SpectatorWin
         {
             string[] messages = SplitMessage(message);
             foreach (string msg in messages)
-                if (client == null || !client.JoinedChannels.Any())
+                if (Client == null || !Client.JoinedChannels.Any())
                     Console.WriteLine(msg);
                 else
-                    client.SendMessage(TwitchUsername, msg);
+                    Client.SendMessage(TwitchUsername, msg);
         }
 
         private string[] SplitMessage(string message)
@@ -393,7 +341,7 @@ namespace TF2SpectatorWin
         private void Client_OnJoinedChannel(object sender, OnJoinedChannelArgs e)
         {
             Console.WriteLine("Hey guys! I am a bot connected via TwitchLib!");
-            client.SendMessage(e.Channel, "For TF2 Spectator commands, type !help");
+            Client.SendMessage(e.Channel, "For TF2 Spectator commands, type !help");
         }
 
         private void Client_OnMessageReceived(object sender, OnMessageReceivedArgs e)
@@ -417,24 +365,6 @@ namespace TF2SpectatorWin
             //    client.SendMessage(e.Channel, $"Welcome {e.Subscriber.DisplayName} to the substers! You just earned 500 points! So kind of you to use your Twitch Prime on this channel!");
             //else
             //    client.SendMessage(e.Channel, $"Welcome {e.Subscriber.DisplayName} to the substers! You just earned 500 points!");
-        }
-    }
-
-    internal class TwitchChannelInfo
-    {
-        private Task<GetUsersResponse> usersTask;
-
-        public TwitchChannelInfo(TwitchAPI twitchAPI, string twitchUsername)
-        {
-            usersTask = twitchAPI.Helix.Users
-                .GetUsersAsync(logins: new List<string>(new string[] { twitchUsername }));
-        }
-
-        internal User GetInfo()
-        {
-            usersTask.Wait();
-            GetUsersResponse GetUsersResponse = usersTask.Result;
-            return GetUsersResponse.Users.First();
         }
     }
 }
