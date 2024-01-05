@@ -216,16 +216,37 @@ namespace TF2SpectatorWin
             string namePart = commandParts[0];
             string commandFormat = commandParts[1];
             string commandHelp = commandParts.Length > 2 ? commandParts[2] : string.Empty;
+            string responseFormat = commandParts.Length > 3 ? commandParts[3] : string.Empty;
 
             string[] names = namePart.Split('|');
             string name = names[0];
             ChatCommandDetails command = new ChatCommandDetails(name,
-                (userDisplayName, args) => SendCommandExecute(string.Format(commandFormat, userDisplayName, CleanArgs(args))),
+                CreateChatCommand(commandFormat, responseFormat),
                 commandHelp);
 
             if (names.Length > 1)
                 command.Aliases = names.Where(alias => alias != name).ToList();
             return command;
+        }
+
+        private ChatCommandDetails.ChatCommand CreateChatCommand(string commandFormat, string responseFormat)
+        {
+            //// Future plans to handle special variable formatting output would have to handle output that could be like this:
+            //// "cl_crosshair_file" = "crosshair1" ( def. "" )
+            //// client archive
+            //// - help text
+            ////// probably just split by " and use [1] and [3]
+
+            return (userDisplayName, args) => SendCommandAndProcessResponse(
+
+                string.Format(commandFormat, userDisplayName, args),
+
+                (response) =>
+                {
+                    string chat = string.Format(responseFormat, userDisplayName, response);
+                    if (!string.IsNullOrWhiteSpace(chat))
+                        Twitch?.SendMessageWithWrapping(chat);
+                });
         }
 
         private string ReadCommandConfig()
@@ -254,7 +275,7 @@ namespace TF2SpectatorWin
 
             // requires sv_cheats "!3rdperson" + CommandSeparator + "thirdperson;wait 20000;firstperson" + CommandSeparator + "turns on  for a few minutes\n" +
             // requires sv_cheats "!shake" + CommandSeparator + "shake" + CommandSeparator + "does the demoman charge screenshake\n" +
-            "!crosshair" + CommandSeparator + "cl_crosshair_file {0};wait 20000;cl_crosshair_file" + CommandSeparator + "needs one argument (like crosshair1, crosshair2 ...) - changes the crosshair to the file argument value for a few minutes\n" +
+            "!crosshair" + CommandSeparator + "cl_crosshair_file {0};wait 20000;cl_crosshair_file \"\"" + CommandSeparator + "needs one argument (like crosshair1, crosshair2 ...) - changes the crosshair to the file argument value for a few minutes\n" +
             "die" + CommandSeparator + "kill" + CommandSeparator + "instant death in game\n" +
             "explode" + CommandSeparator + "explode" + CommandSeparator + "explosive instant death in game\n" +
 
@@ -298,18 +319,11 @@ namespace TF2SpectatorWin
 
             Twitch.SendMessageWithWrapping(string.Format("Ok, {0}, we will switch to the class '{1}'", userDisplayName, joinas));
             string cmd = "join_class " + joinas;
-            SendCommandExecute(cmd);
+            SendCommandAndProcessResponse(
+                cmd, 
+                afterCommand: null);
         }
 
-        private string CleanArgs(string argumentsAsString)
-        {
-            if (string.IsNullOrEmpty(argumentsAsString))
-                return argumentsAsString;
-
-            return argumentsAsString
-                .Replace("\"", "")
-                .Replace(';', ',');
-        }
         #endregion command configuration
 
         public string RconPassword
@@ -539,19 +553,25 @@ namespace TF2SpectatorWin
                 if (!v.Equals(_username))
                 {
                     _username = v;
-                    _twitch = null;
-                    ViewNotification(nameof(IsTwitchConnected));
+                    DisconnectTwitch();
                 }
             }
         }
+
+        private void DisconnectTwitch()
+        {
+            _twitch?.Dispose();
+            _twitch = null;
+            ViewNotification(nameof(IsTwitchConnected));
+        }
+
         public string AuthToken
         {
             get => TwitchInstance.AuthToken;
             set
             {
                 TwitchInstance.AuthToken = value?.Trim();
-                _twitch = null;
-                ViewNotification(nameof(IsTwitchConnected));
+                DisconnectTwitch();
             }
         }
 
@@ -561,20 +581,34 @@ namespace TF2SpectatorWin
 
         private void SendCommandExecute(object obj)
         {
-            AddLog(obj?.ToString());
+            string consoleCommand = obj?.ToString() ?? CommandString;
+
+            SendCommandAndProcessResponse(consoleCommand, 
+                SetOutputString);
+        }
+
+        private void SendCommandAndProcessResponse(string consoleCommand, Action<string> afterCommand)
+        {
+            AddLog(consoleCommand);
+
             if (TF2 == null)
             {
                 AddLog("no TF2 connection");
                 return;
             }
-            TF2Command cmd = new StringCommand(obj?.ToString() ?? CommandString);
+
+            TF2Command cmd = new StringCommand(consoleCommand);
             TF2.SendCommand(cmd, s =>
             {
-                OutputString = s;
-                ViewNotification(nameof(OutputString));
-
+                afterCommand?.Invoke(s);
                 AddLog(cmd + ": " + s);
             });
+        }
+
+        private void SetOutputString(string response)
+        {
+            OutputString = response;
+            ViewNotification(nameof(OutputString));
         }
 
         private ICommand _ParseTBDCommand;
@@ -605,9 +639,8 @@ namespace TF2SpectatorWin
             {
                 if (IsTwitchConnected)
                 {
-                    _twitch = null;
+                    DisconnectTwitch();
                     AddLog("Disconnected Twitch");
-                    ViewNotification(nameof(IsTwitchConnected));
                 }
                 else
                     AddLog("Connected Twitch: " + Twitch?.TwitchUsername);

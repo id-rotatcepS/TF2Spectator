@@ -17,7 +17,7 @@ using TwitchLib.PubSub.Models.Responses.Messages.Redemption;
 namespace TF2SpectatorWin
 {
 
-    public class TwitchInstance
+    public class TwitchInstance : IDisposable
     {
         private const string ClientID = "xvco4mzu0kr55ah5gr2xxyefx0kvbc";
 
@@ -118,6 +118,11 @@ namespace TF2SpectatorWin
             _ = Client.Connect();
         }
 
+        public void Dispose()
+        {
+            Client.Disconnect();
+        }
+
         private void StartPubSubWhenNeeded()
         {
             // PubSub is only being used for Redemptions, and redemptions are only valid for affiliate/partner accounts.
@@ -165,10 +170,14 @@ namespace TF2SpectatorWin
         private void Pubsub_OnChannelPointsRewardRedeemed(object sender, TwitchLib.PubSub.Events.OnChannelPointsRewardRedeemedArgs e)
         {
             Redemption redemption = e.RewardRedeemed.Redemption;
-            GetRedeemCommandByNameOrID(redemption)
-                ?.Action?.Invoke(
-                    redemption.User.DisplayName,
-                    CleanArgs(redemption.UserInput));// redemption.Reward.Cost
+            ChatCommandDetails commandDetails = GetRedeemCommandByNameOrID(redemption);
+            string userName = redemption.User.DisplayName;
+            string userInput = redemption.UserInput;
+            // redemption.Reward.Cost
+            commandDetails
+                ?.InvokeCommand(
+                    userName,
+                    userInput);
         }
 
         private ChatCommandDetails GetRedeemCommandByNameOrID(Redemption redemption)
@@ -180,15 +189,14 @@ namespace TF2SpectatorWin
 
         private void Client_OnChatCommandReceived(object sender, OnChatCommandReceivedArgs e)
         {
-            GetChatCommand(e.Command.CommandText)
-                ?.Action?.Invoke(
-                    e.Command.ChatMessage.DisplayName,
-                    CleanArgs(e.Command.ArgumentsAsString));
-        }
-
-        private string CleanArgs(string argumentsAsString)
-        {
-            return argumentsAsString;
+            ChatCommand chatCommand = e.Command;
+            ChatCommandDetails commandDetails = GetChatCommand(chatCommand.CommandText);
+            string userName = chatCommand.ChatMessage.DisplayName;
+            string userInput = chatCommand.ArgumentsAsString;
+            commandDetails
+                ?.InvokeCommand(
+                    userName,
+                    userInput);
         }
 
         public void AddCommand(ChatCommandDetails chatCommandDetails)
