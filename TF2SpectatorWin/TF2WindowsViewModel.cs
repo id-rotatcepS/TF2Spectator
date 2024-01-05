@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Input;
+
 using TF2FrameworkInterface;
 
 namespace TF2SpectatorWin
@@ -66,6 +67,12 @@ namespace TF2SpectatorWin
                 AddLog(ex.Message);
             }
             BotDetectorLog = lines.Length > 5 ? lines[5] : string.Empty;
+        }
+
+        private void AddLog(string msg)
+        {
+            CommandLog = CommandLog + "\n" + msg;
+            ViewNotification(nameof(CommandLog));
         }
 
         private void SaveConfig()
@@ -372,6 +379,13 @@ namespace TF2SpectatorWin
                 return;
 
             // First, process the most recent file, then watch for new ones.
+            ParseMostRecentTBDLogFile();
+
+            StartNewWatcherOrLogWhy();
+        }
+
+        private void ParseMostRecentTBDLogFile()
+        {
             try
             {
                 ParseTBDLogRconValues(GetMostRecentTBDLogFile());
@@ -379,16 +393,7 @@ namespace TF2SpectatorWin
             catch (Exception ex)
             {
                 AddLog("Could not parse bot detector log yet: " + ex.Message);
-                // processing most recent failed (maybe there wasn't one)... no problem, we'll just process the first one that pops up.
-            }
-
-            try
-            {
-                StartNewWatcher();
-            }
-            catch (Exception ex)
-            {
-                AddLog("Error trying to watch bot detector logs (will not automatically configure): " + ex.Message);
+                // processing most recent failed (maybe there wasn't one)... no problem, Watcher will process the next one that pops up.
             }
         }
 
@@ -402,32 +407,50 @@ namespace TF2SpectatorWin
         /// <exception cref="InvalidOperationException">config line was not found in the file (so far)</exception>
         private void ParseTBDLogRconValues(string fullPath)
         {
-            // access the log file while it is being written.
-            using (FileStream stream = File.Open(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-            using (StreamReader reader = new StreamReader(stream))
+            // only do this one at a time.  FUTURE: add a custom lock field if we have other things to lock.
+            lock (this)
             {
-                while (!reader.EndOfStream)
+                // access the log file while it is being written.
+                using (FileStream stream = File.Open(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (StreamReader reader = new StreamReader(stream))
                 {
-                    string line = reader.ReadLine();
-
-                    Match rconMatch = TBDRconMatcher.Match(line);
-                    if (!rconMatch.Success)
-                        continue;
-
-                    // Reminders:
-                    // Groups contains the last $0 $1 etc.  Captures contains any earlier group matches before the last one.
-                    // Group 0 is $0 which is the whole string that matched the regex.
-                    string pass = rconMatch.Groups[1].Value;
-                    string port = rconMatch.Groups[2].Value;
-
-                    AddLog("Loading bot detector Rcon settings: " + pass + " " + port);
-                    RconPassword = pass;
-                    RconPort = ushort.Parse(port);
-
-                    return;
+                    ParseTBDLogRconValues(reader);
                 }
-                throw new InvalidOperationException("config not found");
             }
+        }
+
+        /// <summary>
+        /// Try once to read the given stream reader for the Rcon configuration information.
+        /// </summary>
+        /// <param name="reader"></param>
+        /// <exception cref="InvalidOperationException">config line was not found in the reader</exception>
+        private void ParseTBDLogRconValues(StreamReader reader)
+        {
+            bool set = false;
+            while (!reader.EndOfStream)
+            {
+                string line = reader.ReadLine();
+
+                Match rconMatch = TBDRconMatcher.Match(line);
+                if (!rconMatch.Success)
+                    continue;
+
+                // Reminders:
+                // Groups contains the last $0 $1 etc.  Captures contains any earlier group matches before the last one.
+                // Group 0 is $0 which is the whole string that matched the regex.
+                string pass = rconMatch.Groups[1].Value;
+                string port = rconMatch.Groups[2].Value;
+
+                RconPassword = pass;
+                RconPort = ushort.Parse(port);
+
+                // yes, we found one, but it's the LAST one that matters, unfortunately, so keep going
+                set = true;
+            }
+            if (!set)
+                throw new InvalidOperationException("config not found");
+
+            AddLog("Loading bot detector Rcon settings: " + RconPassword + " " + RconPort);
         }
 
         private string GetMostRecentTBDLogFile()
@@ -446,6 +469,18 @@ namespace TF2SpectatorWin
             // probably unnecessary
             watcher.EnableRaisingEvents = false;
             watcher.Dispose();
+        }
+
+        private void StartNewWatcherOrLogWhy()
+        {
+            try
+            {
+                StartNewWatcher();
+            }
+            catch (Exception ex)
+            {
+                AddLog("Error trying to watch bot detector logs (will not automatically configure): " + ex.Message);
+            }
         }
 
         private void StartNewWatcher()
@@ -542,10 +577,13 @@ namespace TF2SpectatorWin
             });
         }
 
-        private void AddLog(string msg)
+        private ICommand _ParseTBDCommand;
+        public ICommand ParseTBDCommand => _ParseTBDCommand
+            ?? (_ParseTBDCommand = new RelayCommand<object>(ParseTBDCommandExecute));
+
+        private void ParseTBDCommandExecute(object obj)
         {
-            CommandLog = msg + "\n" + CommandLog;
-            ViewNotification(nameof(CommandLog));
+            ParseMostRecentTBDLogFile();
         }
 
         private ICommand _LaunchCommand;

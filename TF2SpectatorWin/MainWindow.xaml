@@ -37,7 +37,7 @@
     <!--</ResourceDictionary>-->
   </Window.Resources>
   
-    <!--<Grid>-->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
       <StackPanel>
           <Menu x:Name="mainmenu" IsMainMenu="True" >
 
@@ -50,7 +50,7 @@
 
           </Menu>
 
-        <Expander Header="TF2 (Rcon connection)" IsExpanded="{Binding TF2Expanded}">
+        <Expander Header="TF2 ⌨🖱 (Rcon connection)" IsExpanded="{Binding TF2Expanded}">
           <StackPanel>
             <StackPanel Orientation="Horizontal">
 
@@ -65,20 +65,27 @@
                 </StackPanel>
                 <Separator />
                 <StackPanel Orientation="Horizontal">
-                    
                     <Label Content="tf2 bot detector logs:" ToolTip="Auto-fills Rcon if you run tf2_bot_detector"/>
                     <TextBox x:Name="tbdlogs" Height="23" VerticalAlignment="Top" HorizontalAlignment="Stretch"  MinWidth="400"
                          Text="{Binding BotDetectorLog}" TextAlignment="Right"
                          ToolTip="Auto-fills Rcon if you run tf2_bot_detector - set using its folder ...\TF2 Bot Detector\logs"/>
-                
+
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+
+                    <Label Content="🔄"/>
+                    <Button x:Name="rescantbd" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" MinWidth="75"
+                            Content="Re-scan current log" Command="{Binding ParseTBDCommand}"
+                            ToolTip="Restarting TF2 without restarting tf2_bot_detector requires a re-scan to get the new values"/>
+
                 </StackPanel>
                 <Label Content="... or ..."/>
                 <StackPanel Orientation="Horizontal">
                     
-                    <Button x:Name="start" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" Width="75"
+                    <Button x:Name="start" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" MinWidth="75"
                             Content="(Launch TF2)" Command="{Binding LaunchCommand}"
                             ToolTip="Starts TF2 using these settings - DON'T Click if using tf2_bot_detector, instead set the TF2BD logs folder to share its settings"/>
-                    <Label Content="from"/>
+                    <Label Content="▶ from"/>
                     <TextBox x:Name="tf2" HorizontalAlignment="Stretch" Height="23"  TextWrapping="Wrap" VerticalAlignment="Top" MinWidth="400"
                              Text="{Binding TF2Path}"
                              ToolTip="Path to the steamapps\common\Team Fortress 2 - this button launches hl2.exe from there with special settings"/>
@@ -90,16 +97,18 @@
         <Expander IsExpanded="False">
           <Expander.Header>
             <StackPanel Orientation="Horizontal">
-              <Label Content="Twitch  "/>
-              <!--<CheckBox IsChecked="{Binding IsTwitchConnected, Mode=OneWay}" IsEnabled="False"/>-->
-              <Button x:Name="connect" HorizontalAlignment="Left" Height="30" VerticalAlignment="Top" Width="100"
-                    Command="{Binding LaunchTwitchCommand}"
-                    ToolTip="Using these values - blank auth token first does a browser login">
-                <StackPanel Orientation="Horizontal" Height="23">
-                  <Label Content="Link Twitch  "/>
-                  <CheckBox IsChecked="{Binding IsTwitchConnected, Mode=OneWay}" IsEnabled="False"/>
-                </StackPanel>
-              </Button>
+                
+                <Label Content="Twitch 📺"/>
+                <!--<CheckBox IsChecked="{Binding IsTwitchConnected, Mode=OneWay}" IsEnabled="False"/>-->
+                <Button x:Name="connect" HorizontalAlignment="Left" Height="30" VerticalAlignment="Top" Width="100"
+                        Command="{Binding LaunchTwitchCommand}"
+                        ToolTip="Using these values - blank auth token first does a browser login">
+                    <StackPanel Orientation="Horizontal" Height="28">
+                        <Label Content="Link Twitch"/>
+                        <CheckBox IsChecked="{Binding IsTwitchConnected, Mode=OneWay}" IsEnabled="False"/>
+                    </StackPanel>
+                </Button>
+                
             </StackPanel>
           </Expander.Header>
           <StackPanel Orientation="Horizontal">
@@ -117,39 +126,46 @@
 
         <Expander Header="TF2 Command Tests" IsExpanded="False">
           <StackPanel>
-            <ToolBar Height="33" Margin="0,0,0,0"  HorizontalAlignment="Stretch" VerticalAlignment="Top">
-
-              <Menu x:Name="localcommands" IsMainMenu="True" >
-                <MenuItem Header="TF2 Test Commands">
-                  <MenuItem Header="test echo" CommandParameter="echo test" Command="{Binding SendCommand}"/>
-                  <MenuItem Header="toggleconsole" CommandParameter="toggleconsole" Command="{Binding SendCommand}"/>
-                  <MenuItem Header="quit" CommandParameter="quit" Command="{Binding SendCommand}"/>
-                </MenuItem>
-              </Menu>
-
-            </ToolBar>
-
-            <StackPanel Orientation="Horizontal">
-            
-            <Label Content="console command:"/>
-            <TextBox x:Name="input" HorizontalAlignment="Left" Height="23" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"
-                   Text="{Binding CommandString}"/>
-            <Button x:Name="send" Content="Send" HorizontalAlignment="Left" VerticalAlignment="Top" Width="75"
-                    Command="{Binding SendCommand}"/>
-            <Label Content="output:"/>
-            <TextBlock x:Name="output" HorizontalAlignment="Left" Height="23" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"
-                   Text="{Binding OutputString, NotifyOnSourceUpdated=True, NotifyOnTargetUpdated=True, Mode=OneWay, UpdateSourceTrigger=PropertyChanged, BindsDirectlyToSource=True}" />
-
-          </StackPanel></StackPanel>
+              <ToolBar Height="33" Margin="0,0,0,0"  HorizontalAlignment="Stretch" VerticalAlignment="Top">
+                  
+                  <Menu x:Name="localcommands" IsMainMenu="True" >
+                      <MenuItem Header="TF2 Test Commands">
+                          <MenuItem Header="test echo" CommandParameter="echo test" Command="{Binding SendCommand}"/>
+                          <MenuItem Header="toggleconsole" CommandParameter="toggleconsole" Command="{Binding SendCommand}"/>
+                          <MenuItem Header="quit" CommandParameter="quit" Command="{Binding SendCommand}"/>
+                      </MenuItem>
+                  </Menu>
+                  
+              </ToolBar>
+              
+              <StackPanel Orientation="Horizontal">
+                  
+                  <Label Content="console command:"/>
+                  <TextBox x:Name="input" HorizontalAlignment="Left" Height="23" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"
+                           Text="{Binding CommandString}"/>
+                  <Button x:Name="send" Content="📡Send" HorizontalAlignment="Left" VerticalAlignment="Top" Width="75"
+                          Command="{Binding SendCommand}"/>
+                  <Label Content="output:"/>
+                  <TextBlock x:Name="output" HorizontalAlignment="Left" Height="23" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"
+                             Text="{Binding OutputString, NotifyOnSourceUpdated=True, NotifyOnTargetUpdated=True, Mode=OneWay, UpdateSourceTrigger=PropertyChanged, BindsDirectlyToSource=True}" />
+                  
+              </StackPanel>
+          </StackPanel>
         </Expander>
         
         <Separator />
         
-        <Expander Header="Log (newest on top)" IsExpanded="True">
-          <TextBox x:Name="log" HorizontalAlignment="Left" Height="70"  TextWrapping="Wrap" VerticalAlignment="Top" Width="700"
-                     Text="{Binding CommandLog}" VerticalScrollBarVisibility="Auto"/>
+        <Expander Header="Log 📜" IsExpanded="True" MaxHeight="235">
+            <ScrollViewer x:Name="logScroller" VerticalScrollBarVisibility="Visible">
+                <TextBox x:Name="log" HorizontalAlignment="Left" MinHeight="70" TextWrapping="Wrap" VerticalContentAlignment="Stretch" MinWidth="700"
+                         Text="{Binding CommandLog}" 
+                         BorderBrush="Transparent"
+                         Background="Transparent" BorderThickness="0"
+                         Padding="5 0 0 0"
+                         IsReadOnly="True" IsReadOnlyCaretVisible="True" IsInactiveSelectionHighlightEnabled="True" TextChanged="log_TextChanged"/>
+            </ScrollViewer>
         </Expander>
 
-      </StackPanel>
-    <!--</Grid>-->
+        </StackPanel>
+    </ScrollViewer>
 </Window>

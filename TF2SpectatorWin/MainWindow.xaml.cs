@@ -15,5 +15,15 @@ namespace TF2SpectatorWin
 
             this.Closing += ((TF2WindowsViewModel)this.DataContext).ClosingHandler;
         }
+
+        private void log_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            // don't auto-scroll if the user was accessing the log when the new text came in.
+            if (logScroller.VerticalOffset != logScroller.ScrollableHeight)
+                return;
+
+            // auto-scroll the log
+            logScroller.ScrollToEnd();
+        }
     }
 }
