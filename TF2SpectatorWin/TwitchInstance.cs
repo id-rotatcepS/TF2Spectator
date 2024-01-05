@@ -349,7 +349,7 @@ namespace TF2SpectatorWin
         private void Client_OnJoinedChannel(object sender, OnJoinedChannelArgs e)
         {
             Console.WriteLine("Hey guys! I am a bot connected via TwitchLib!");
-            Client.SendMessage(e.Channel, "For TF2 Spectator commands, type !help");
+            ((TwitchClient)sender).SendMessage(e.Channel, "For TF2 Spectator commands, type !help");
         }
 
         private void Client_OnMessageReceived(object sender, OnMessageReceivedArgs e)

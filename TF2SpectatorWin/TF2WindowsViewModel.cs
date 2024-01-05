@@ -587,6 +587,15 @@ namespace TF2SpectatorWin
                 SetOutputString);
         }
 
+
+        /// <summary>
+        /// runs the TF2 rcon command, and runs an action afterward using the Rcon response.
+        /// Note, the Rcon response is the output of all commands in the sequence PRIOR TO a wait command, 
+        /// and the response comes back immediately regardless of wait times.
+        /// In other words "echo one;echo two;wait 200;echo three" will return "one\ntwo"
+        /// </summary>
+        /// <param name="consoleCommand"></param>
+        /// <param name="afterCommand"></param>
         private void SendCommandAndProcessResponse(string consoleCommand, Action<string> afterCommand)
         {
             AddLog(consoleCommand);

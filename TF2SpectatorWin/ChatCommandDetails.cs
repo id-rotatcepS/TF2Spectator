@@ -27,6 +27,12 @@ namespace TF2SpectatorWin
                 CleanArgs(userInput));
         }
 
+        /// <summary>
+        /// Make arguments safe from injection into a tf2 rcon console command.
+        /// remove quotes and semicolons.
+        /// </summary>
+        /// <param name="argumentsAsString"></param>
+        /// <returns></returns>
         private string CleanArgs(string argumentsAsString)
         {
             if (string.IsNullOrEmpty(argumentsAsString))

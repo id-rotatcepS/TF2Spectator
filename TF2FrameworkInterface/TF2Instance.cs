@@ -2,6 +2,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace TF2FrameworkInterface
@@ -120,13 +121,44 @@ namespace TF2FrameworkInterface
 			Task<string> rconTask = TF2RCON.SendCommandAsync(consoleCommand);
 			//TODO
 			_ = rconTask.ContinueWith(
-				s => result(s.Result)
+				s => result(ProcessResult(s.Result))
 				);
 		}
 
-		#region HiJack
+		/// <summary>
+		/// normally true to convert to 'value' from results like '"cl_variable_name" = "value" (def: "")'
+		/// </summary>
+		public bool ShouldProcessResultValues { get; set; } = true;
 
-		/* tf2bd:
+		private static readonly Regex variableMatch = new Regex(
+			".*\"(?<variable>[^\"]+)\"\\s*=\\s*\"(?<value>[^\"]+)\".*"
+			);
+        /// <summary>
+        /// convert some odd results into something more useful
+        /// </summary>
+        /// <param name="result"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        private string ProcessResult(string result)
+        {
+			if (result == null) 
+				return result;
+            if (!ShouldProcessResultValues)
+                return result;
+
+            Match matcher = variableMatch.Match(result);
+            if (!matcher.Success)
+                return result;
+
+            string variable = matcher.Groups["variable"].Value;
+            string value = matcher.Groups["value"].Value;
+
+            return value;
+        }
+
+        #region HiJack
+
+        /* tf2bd:
 bool HijackActionManager::SendHijackCommand(std::string cmd)
 {
 	if (cmd.empty())
@@ -182,28 +214,28 @@ bool HijackActionManager::SendHijackCommand(std::string cmd)
 }
 		 */
 
-		//private void SendHijackCommand(string consoleCommand)
-		//{
-		//	string hl2Argument = string.Format("-game tf -hijack {0}", consoleCommand);
+        //private void SendHijackCommand(string consoleCommand)
+        //{
+        //	string hl2Argument = string.Format("-game tf -hijack {0}", consoleCommand);
 
-		//	using (Process hl2Hijack = new Process())
-		//	{
-		//		hl2Hijack.StartInfo = new ProcessStartInfo()
-		//		{
-		//			FileName = hl2,
-		//			Arguments = hl2Argument,
-		//			UseShellExecute = false,
-		//			RedirectStandardOutput = true,
-		//			WindowStyle = ProcessWindowStyle.Hidden,
-		//			CreateNoWindow = true,
-		//		};
+        //	using (Process hl2Hijack = new Process())
+        //	{
+        //		hl2Hijack.StartInfo = new ProcessStartInfo()
+        //		{
+        //			FileName = hl2,
+        //			Arguments = hl2Argument,
+        //			UseShellExecute = false,
+        //			RedirectStandardOutput = true,
+        //			WindowStyle = ProcessWindowStyle.Hidden,
+        //			CreateNoWindow = true,
+        //		};
 
-		//		hl2Hijack.Start();
-		//		//string output = pProcess.StandardOutput.ReadToEnd(); //The output result
-		//		hl2Hijack.WaitForExit();
-		//		_ = hl2Hijack.ExitCode;
-		//	}
-		//}
-		#endregion HiJack
+        //		hl2Hijack.Start();
+        //		//string output = pProcess.StandardOutput.ReadToEnd(); //The output result
+        //		hl2Hijack.WaitForExit();
+        //		_ = hl2Hijack.ExitCode;
+        //	}
+        //}
+        #endregion HiJack
     }
 }
