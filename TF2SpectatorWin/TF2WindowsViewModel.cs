@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Input;
 
 using TF2FrameworkInterface;
@@ -239,14 +240,20 @@ namespace TF2SpectatorWin
 
             return (userDisplayName, args) => SendCommandAndProcessResponse(
 
-                string.Format(commandFormat, userDisplayName, args),
+                CustomFormat(commandFormat, userDisplayName, args),
 
                 (response) =>
                 {
-                    string chat = string.Format(responseFormat, userDisplayName, response);
+                    string chat = CustomFormat(responseFormat, userDisplayName, response);
                     if (!string.IsNullOrWhiteSpace(chat))
                         Twitch?.SendMessageWithWrapping(chat);
                 });
+        }
+
+        private string CustomFormat(string commandFormat, params string[] args)
+        {
+            return new CustomCommandFormat(this.SendCommandAndProcessResponse)
+                .Format(commandFormat, args);
         }
 
         private string ReadCommandConfig()
@@ -278,6 +285,8 @@ namespace TF2SpectatorWin
             "!crosshair" + CommandSeparator + "cl_crosshair_file {0};wait 20000;cl_crosshair_file \"\"" + CommandSeparator + "needs one argument (like crosshair1, crosshair2 ...) - changes the crosshair to the file argument value for a few minutes\n" +
             "die" + CommandSeparator + "kill" + CommandSeparator + "instant death in game\n" +
             "explode" + CommandSeparator + "explode" + CommandSeparator + "explosive instant death in game\n" +
+
+            "!hitSound" + CommandSeparator + "tf_dingalingaling_effect" + CommandSeparator + "What hit sound is in use?" + CommandSeparator + "Current hit sound is {1|0:0 (Default)|1:1 (Electro)|2:2 (Notes)|3:3 (Percussion)|4:4 (Retro)|5:5 (Space)|6:6 (Beepo)|7:7 (Vortex)|8:8 (Squasher)}\n" +
 
             "!bigguns" + CommandSeparator + "tf_use_min_viewmodels 0;wait 20000;tf_use_min_viewmodels 1" + CommandSeparator + "turns off \"min viewmodels\" for a few minutes\n" +
             "!hiderate|hiderate" + CommandSeparator + "cl_showfps 0;wait 20000;cl_showfps 1" + CommandSeparator + "turns off the game fps display for a few minutes\n" +
@@ -523,7 +532,7 @@ namespace TF2SpectatorWin
                 AddLog("Error parsing bot detector log: " + ex.Message);
                 // retry
                 // TODO prevent infinite loop?
-                App.Current.Dispatcher.BeginInvoke(
+                _ = App.Current.Dispatcher.BeginInvoke(
                     new Action(() =>
                     {
                         AddLog("trying again");
@@ -593,6 +602,7 @@ namespace TF2SpectatorWin
         /// Note, the Rcon response is the output of all commands in the sequence PRIOR TO a wait command, 
         /// and the response comes back immediately regardless of wait times.
         /// In other words "echo one;echo two;wait 200;echo three" will return "one\ntwo"
+        /// Waits for the afterCommand to complete.
         /// </summary>
         /// <param name="consoleCommand"></param>
         /// <param name="afterCommand"></param>
@@ -607,11 +617,13 @@ namespace TF2SpectatorWin
             }
 
             TF2Command cmd = new StringCommand(consoleCommand);
-            TF2.SendCommand(cmd, s =>
+            Task afterTask = TF2.SendCommand(cmd, s =>
             {
                 afterCommand?.Invoke(s);
                 AddLog(cmd + ": " + s);
             });
+
+            afterTask.Wait();
         }
 
         private void SetOutputString(string response)

@@ -109,20 +109,31 @@ namespace TF2FrameworkInterface
 
         public RCON TF2RCON { get; private set; }
 
-		public void SendCommand(TF2Command command, Action<string> result)
+		/// <summary>
+		/// runs the command and an action to process its result.  
+		/// Returns a task governing the execution of the result processing.
+		/// Just call .Wait() if you want to be synchronous with the result execution.
+		/// </summary>
+		/// <param name="command"></param>
+		/// <param name="result"></param>
+		/// <returns></returns>
+		public Task SendCommand(TF2Command command, Action<string> result)
 		{
 			string consoleCommand = command.ConsoleString;
 			//SendHijackCommand(consoleCommand);
-			SendRCONCommand(consoleCommand, result);
+			return SendRCONCommand(consoleCommand, result);
 		}
 
-		private void SendRCONCommand(string consoleCommand, Action<string> result)
+		private Task SendRCONCommand(string consoleCommand, Action<string> result)
 		{
-			Task<string> rconTask = TF2RCON.SendCommandAsync(consoleCommand);
-			//TODO
-			_ = rconTask.ContinueWith(
-				s => result(ProcessResult(s.Result))
-				);
+			lock (this)
+			{
+				Task<string> rconTask = TF2RCON.SendCommandAsync(consoleCommand);
+
+				return rconTask.ContinueWith(
+					s => result(ProcessResult(s.Result))
+					);
+			}
 		}
 
 		/// <summary>
