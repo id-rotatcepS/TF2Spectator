@@ -69,7 +69,8 @@ namespace TF2SpectatorWin
                 clientID: ClientID);
             // includes redeems in scope even if it's a non-affiliated account
             OAuthResult authResult = oauth.Authorize(ClientOAuthScopes);
-
+            
+            // Throws exception if it was an error result:
             return authResult.AccessToken;
         }
 

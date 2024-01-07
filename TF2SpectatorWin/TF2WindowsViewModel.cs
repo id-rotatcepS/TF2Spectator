@@ -4,7 +4,6 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,7 +15,6 @@ namespace TF2SpectatorWin
 {
     internal class TF2WindowsViewModel : INotifyPropertyChanged
     {
-        public readonly static string ConfigFileName = "TF2Spectator.config.txt";
         public event PropertyChangedEventHandler PropertyChanged;
         public void ViewNotification(string propertyName)
         {
@@ -27,76 +25,28 @@ namespace TF2SpectatorWin
 
         public TF2WindowsViewModel()
         {
-            InitFromConfig();
+            // Using ASPEN for common needs
+            // logging just goes to the Log view textbox
+            ASPEN.Aspen.Log = new TF2SpectatorLog(this);
+
+            // settings load/save to the config file.
+            ASPEN.Aspen.Option = new TF2SpectatorSettings(this);
+            // initialize primary source from loaded option
+            TwitchInstance.AuthToken = Option.Get<string>(nameof(AuthToken));
 
             // hide tf2 unless they've configured the launch button or haven't configured anything.
             TF2Expanded = !string.IsNullOrEmpty(TF2Path) 
                 || string.IsNullOrEmpty(BotDetectorLog);
         }
 
-        private void InitFromConfig()
-        {
-            string[] lines = new string[0];
-            try
-            {
-                string filename = ConfigFileName;
-                string content = File.ReadAllText(filename);
+        private ASPEN.AspenLogging Log => ASPEN.Aspen.Log;
 
-                lines = content.Split('\n');
-            }
-            catch (FileNotFoundException)
-            {
-                // expected
-            }
-            catch (Exception ex)
-            {
-                AddLog(ex.Message);
-            }
-
-            TwitchUsername = lines.Length > 0 ? lines[0] : "yourNameHere";
-            AuthToken = lines.Length > 1 ? lines[1] : string.Empty;
-
-            TF2Path = lines.Length > 2 ? lines[2] : @"C:\Program Files (x86)\Steam\steamapps\common\Team Fortress 2";
-
-            RconPassword = lines.Length > 3 ? lines[3] : "test";
-            try
-            {
-                RconPort = ushort.Parse(lines.Length > 4 ? lines[4] : "48000");
-            }
-            catch (Exception ex)
-            {
-                AddLog(ex.Message);
-            }
-            BotDetectorLog = lines.Length > 5 ? lines[5] : string.Empty;
-        }
-
-        private void AddLog(string msg)
-        {
-            CommandLog = CommandLog + "\n" + msg;
-            ViewNotification(nameof(CommandLog));
-        }
+        private ASPEN.AspenUserSettings Option => ASPEN.Aspen.Option;
 
         private void SaveConfig()
         {
-            string filename = ConfigFileName;
-            StringBuilder content = new StringBuilder();
-            content.AppendLine(TwitchUsername);
-            content.AppendLine(AuthToken);
-
-            content.AppendLine(TF2Path);
-
-            content.AppendLine(RconPassword);
-            content.AppendLine(RconPort.ToString());
-            content.AppendLine(BotDetectorLog);
-
-            try
-            {
-                File.WriteAllText(filename, content.ToString());
-            }
-            catch (Exception ex)
-            {
-                AddLog(ex.Message);
-            }
+            //TODO AspenUserSettings does not include a "save" method.
+            ((TF2SpectatorSettings)Option).SaveConfig();
         }
 
         private ICommand _SaveConfig;
@@ -126,11 +76,11 @@ namespace TF2SpectatorWin
         {
             try
             {
-                return TF2Instance.CreateCommunications();
+                return TF2Instance.CreateCommunications(RconPort, RconPassword);
             }
             catch (Exception e)
             {
-                AddLog("TwitchInstance: " + e.Message);
+                Log.Error("TwitchInstance: " + e.Message);
                 return null;
             }
         }
@@ -161,6 +111,9 @@ namespace TF2SpectatorWin
             try
             {
                 TwitchInstance twitch = new TwitchInstance(twitchUsername);
+                // instantiating TwitchInstance initializes AuthToken if it wasn't already set. Record it in view/options.
+                AuthToken = TwitchInstance.AuthToken;
+
                 ChatCommandDetails classSelection = new ChatCommandDetails(
                                             "tf2 class selection", RedeemClass,
                                             "Select a TF2 class with 1-9 or Scout, Soldier, Pyro, Demoman, Heavy, Engineer, Medic, Sniper, or Spy");
@@ -177,7 +130,7 @@ namespace TF2SpectatorWin
             // error handling is handled on launch command instead.
             //catch(Exception e)
             //{
-            //    AddLog("TwitchInstance: " + e.Message);
+            //    Log.Error("TwitchInstance: " + e.Message);
             //    return null;
             //}
             finally
@@ -190,7 +143,7 @@ namespace TF2SpectatorWin
 
         private void LoadCommandConfiguration(TwitchInstance twitch)
         {
-            foreach (string config in ReadCommandConfig().Split('\n'))
+            foreach (string config in ReadCommandConfig())
             {
                 if (config.Trim().Length == 0)
                     continue;
@@ -202,11 +155,11 @@ namespace TF2SpectatorWin
                     foreach (string alias in command.Aliases)
                         twitch.AddCommand(alias, command);
 
-                    AddLog("configured command: " + command.Command);
+                    Log.Info("configured command: " + command.Command);
                 }
                 catch (Exception)
                 {
-                    AddLog("bad command config: " + config);
+                    Log.Error("bad command config: " + config);
                 }
             }
         }
@@ -232,12 +185,6 @@ namespace TF2SpectatorWin
 
         private ChatCommandDetails.ChatCommand CreateChatCommand(string commandFormat, string responseFormat)
         {
-            //// Future plans to handle special variable formatting output would have to handle output that could be like this:
-            //// "cl_crosshair_file" = "crosshair1" ( def. "" )
-            //// client archive
-            //// - help text
-            ////// probably just split by " and use [1] and [3]
-
             return (userDisplayName, args) => SendCommandAndProcessResponse(
 
                 CustomFormat(commandFormat, userDisplayName, args),
@@ -256,12 +203,12 @@ namespace TF2SpectatorWin
                 .Format(commandFormat, args);
         }
 
-        private string ReadCommandConfig()
+        private string[] ReadCommandConfig()
         {
             try
             {
                 string filename = "TF2SpectatorCommands.tsv";
-                return File.ReadAllText(filename);
+                return File.ReadAllLines(filename);
             }
             catch (FileNotFoundException)
             {
@@ -269,9 +216,9 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                AddLog(ex.Message);
+                Log.Error(ex.Message);
             }
-            return commandConfig;
+            return commandConfig.Split('\n');
         }
 
         //read from a file, use this as backup
@@ -337,51 +284,53 @@ namespace TF2SpectatorWin
 
         public string RconPassword
         {
-            get => TF2Instance.rconPassword;
+            get => Option.Get<string>(nameof(RconPassword));
             set
             {
-                TF2Instance.rconPassword = value?.Trim();
+                Option.Set(nameof(RconPassword), value?.Trim());
                 _tf2 = null;
                 ViewNotification(nameof(RconPassword));
                 ViewNotification(nameof(IsTF2Connected));
             }
         }
+
         public ushort RconPort
         {
-            get => TF2Instance.rconPort;
+            get => Option.Get<ushort>(nameof(RconPort));
             set
             {
-                TF2Instance.rconPort = value;
+                Option.Set(nameof(RconPort), value);
                 _tf2 = null;
                 ViewNotification(nameof(RconPort));
                 ViewNotification(nameof(IsTF2Connected));
             }
         }
+
         public string TF2Path
         {
-            get => TF2Instance.path;
+            get => Option.Get<string>(nameof(TF2Path));
             set
             {
-                TF2Instance.path = value?.Trim();
+                Option.Set(nameof(TF2Path), value?.Trim());
                 // no impact on rcon instance (no _tf2 = null;)
+                ViewNotification(nameof(TF2Path));
             }
         }
 
         #region bot detector log handler
-        private string _logFolder = string.Empty;
         /// <summary>
         /// path to the folder containing the tf2_bot_detector general log files that include the launch parameters that contain the randomized password and port.
         /// </summary>
         public string BotDetectorLog
         {
-            get => _logFolder;
+            get => Option.Get<string>(nameof(BotDetectorLog));
             set
             {
-                _logFolder = value?.Trim();
+                Option.Set(nameof(BotDetectorLog), value?.Trim());
                 ViewNotification(nameof(BotDetectorLog));
             }
         }
-
+        
         private static readonly string BotDetectorLogPattern = "*.log";
         private FileSystemWatcher watcher;
         /// <summary>
@@ -415,7 +364,7 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                AddLog("Could not parse bot detector log yet: " + ex.Message);
+                Log.Error("Could not parse bot detector log yet: " + ex.Message);
                 // processing most recent failed (maybe there wasn't one)... no problem, Watcher will process the next one that pops up.
             }
         }
@@ -473,7 +422,7 @@ namespace TF2SpectatorWin
             if (!set)
                 throw new InvalidOperationException("config not found");
 
-            AddLog("Loading bot detector Rcon settings: " + RconPassword + " " + RconPort);
+            Log.Info("Loading bot detector Rcon settings: " + RconPassword + " " + RconPort);
         }
 
         private string GetMostRecentTBDLogFile()
@@ -502,7 +451,7 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                AddLog("Error trying to watch bot detector logs (will not automatically configure): " + ex.Message);
+                Log.Error("Error trying to watch bot detector logs (will not automatically configure): " + ex.Message);
             }
         }
 
@@ -529,13 +478,13 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                AddLog("Error parsing bot detector log: " + ex.Message);
+                Log.Error("Error parsing bot detector log: " + ex.Message);
                 // retry
                 // TODO prevent infinite loop?
                 _ = App.Current.Dispatcher.BeginInvoke(
                     new Action(() =>
                     {
-                        AddLog("trying again");
+                        Log.Info("trying again");
                         Thread.Sleep(1000); 
                         ParseCreatedTBDLogAndKeepTrying(sender, e);
                     }));
@@ -546,22 +495,21 @@ namespace TF2SpectatorWin
         {
             // reset the watcher.
             //TODO prevent a constant error loop.
-            AddLog("Error watching TBD Logs: " + e.GetException()?.Message);
+            Log.Error("Error watching TBD Logs: " + e.GetException()?.Message);
             WatchTBDLogFolder();
         }
-
+        
         #endregion bot detector log handler
 
-        private string _username = string.Empty;
         public string TwitchUsername
         {
-            get => _username;
+            get => Option.Get<string>(nameof(TwitchUsername));
             set
             {
                 string v = value?.Trim();
-                if (!v.Equals(_username))
+                if (!v.Equals(Option.Get<string>(nameof(TwitchUsername))))
                 {
-                    _username = v;
+                    Option.Set(nameof(TwitchUsername), v);
                     DisconnectTwitch();
                 }
             }
@@ -574,12 +522,14 @@ namespace TF2SpectatorWin
             ViewNotification(nameof(IsTwitchConnected));
         }
 
+        // TwitchInstance is primary source, but need to keep Options up to date.
         public string AuthToken
         {
             get => TwitchInstance.AuthToken;
             set
             {
                 TwitchInstance.AuthToken = value?.Trim();
+                Option.Set(nameof(AuthToken), TwitchInstance.AuthToken);
                 DisconnectTwitch();
             }
         }
@@ -608,11 +558,11 @@ namespace TF2SpectatorWin
         /// <param name="afterCommand"></param>
         private void SendCommandAndProcessResponse(string consoleCommand, Action<string> afterCommand)
         {
-            AddLog(consoleCommand);
+            Log.Info(consoleCommand);
 
             if (TF2 == null)
             {
-                AddLog("no TF2 connection");
+                Log.Warning("no TF2 connection");
                 return;
             }
 
@@ -620,7 +570,7 @@ namespace TF2SpectatorWin
             Task afterTask = TF2.SendCommand(cmd, s =>
             {
                 afterCommand?.Invoke(s);
-                AddLog(cmd + ": " + s);
+                Log.Info(cmd + ": " + s);
             });
 
             afterTask.Wait();
@@ -647,7 +597,7 @@ namespace TF2SpectatorWin
 
         private void LaunchCommandExecute(object obj)
         {
-            TF2Instance.LaunchTF2();
+            TF2Instance.LaunchTF2(TF2Path, RconPort, RconPassword);
         }
 
         private ICommand _LaunchTwitchCommand;
@@ -661,14 +611,14 @@ namespace TF2SpectatorWin
                 if (IsTwitchConnected)
                 {
                     DisconnectTwitch();
-                    AddLog("Disconnected Twitch");
+                    Log.Info("Disconnected Twitch");
                 }
                 else
-                    AddLog("Connected Twitch: " + Twitch?.TwitchUsername);
+                    Log.Info("Connected Twitch: " + Twitch?.TwitchUsername);
             }
             catch (Exception e)
             {
-                AddLog("Twitch Failed: " + e.Message);
+                Log.Error("Twitch Failed: " + e.Message);
             }
         }
 
