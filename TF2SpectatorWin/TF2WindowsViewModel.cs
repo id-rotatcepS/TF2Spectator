@@ -303,7 +303,7 @@ namespace TF2SpectatorWin
                 // This also handles eg. #FFFFFF so we do this first and do our own version if it fails.
                 System.Windows.Media.Color clr = (System.Windows.Media.Color)System.Windows.Media.
                     ColorConverter.ConvertFromString(arguments);
-                SetColor(clr.R, clr.B, clr.G);
+                SetColor(clr.R, clr.G, clr.B);
                 return;
             }
             catch (FormatException)
