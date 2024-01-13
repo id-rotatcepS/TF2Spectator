@@ -35,7 +35,7 @@ namespace TF2SpectatorWin
             TwitchInstance.AuthToken = Option.Get<string>(nameof(AuthToken));
 
             // hide tf2 unless they've configured the launch button or haven't configured anything.
-            TF2Expanded = !string.IsNullOrEmpty(TF2Path) 
+            TF2Expanded = !string.IsNullOrEmpty(TF2Path)
                 || string.IsNullOrEmpty(BotDetectorLog);
         }
 
@@ -118,13 +118,22 @@ namespace TF2SpectatorWin
                                             "tf2 class selection", RedeemClass,
                                             "Select a TF2 class with 1-9 or Scout, Soldier, Pyro, Demoman, Heavy, Engineer, Medic, Sniper, or Spy");
                 twitch.AddCommand(classSelection);
-                // reward id to make channel points work via messages because I can't get pubsub to work.
+                // my reward id in case title changes
                 twitch.AddCommand("cbabba18-d1ec-44ca-9e30-59303812a600", classSelection);
+
+                ChatCommandDetails colorSelection = new ChatCommandDetails(
+                                            "crosshair aim color...", RedeemColor,
+                                            "set my crosshair color by color name or by RGB (0-255, 0-255, 0-255 or #xxxxxx)");
+                twitch.AddCommand(colorSelection);
+                //TODO add support for a command that just has another command as its action to create aliases in config file.
+                // my reward id in case title changes
+                //twitch.AddCommand("", colorSelection);
+                twitch.AddCommand("!aimColor", colorSelection);
 
                 LoadCommandConfiguration(twitch);
 
                 WatchTBDLogFolder();
-                
+
                 return twitch;
             }
             // error handling is handled on launch command instead.
@@ -276,8 +285,72 @@ namespace TF2SpectatorWin
             Twitch.SendMessageWithWrapping(string.Format("Ok, {0}, we will switch to the class '{1}'", userDisplayName, joinas));
             string cmd = "join_class " + joinas;
             SendCommandAndProcessResponse(
-                cmd, 
+                cmd,
                 afterCommand: null);
+        }
+
+        private static readonly Regex rgb = new Regex(@".*(\d{1,3})\D+(\d{1,3})\D+(\d{1,3}).*", RegexOptions.IgnoreCase);
+        private static readonly Regex hrgb = new Regex(@".*([\dA-F]{2})[^\dA-F]*([\dA-F]{2})[^\dA-F]*([\dA-F]{2}).*", RegexOptions.IgnoreCase);
+        private void RedeemColor(string userDisplayName, string arguments)
+        {
+            try
+            {
+                //TODO I think ConvertFromString's colors are like "SlateGray" which is not very kind.  Would prefer to be better or use a better tool
+                //System.Drawing.Color.FromName(arguments);
+                //System.Drawing.ColorTranslator.FromHtml(arguments); // also does #FFFFFF
+
+                // handle color names.
+                // This also handles eg. #FFFFFF so we do this first and do our own version if it fails.
+                System.Windows.Media.Color clr = (System.Windows.Media.Color)System.Windows.Media.
+                    ColorConverter.ConvertFromString(arguments);
+                SetColor(clr.R, clr.B, clr.G);
+                return;
+            }
+            catch (FormatException)
+            {
+                Match rgbMatch = rgb.Match(arguments);
+                if (rgbMatch.Success)
+                {
+                    try
+                    {
+                        SetColor(GetByte(rgbMatch.Groups[1]), GetByte(rgbMatch.Groups[2]), GetByte(rgbMatch.Groups[3]));
+                        return;
+                    }
+                    catch (Exception)
+                    {
+                        // values over 255 would do a formatexception or maybe overflow
+                    }
+                }
+
+                Match hexMatch = hrgb.Match(arguments);
+                if (hexMatch.Success)
+                {
+                    try
+                    {
+                        SetColor(GetHex(hexMatch.Groups[1]), GetHex(hexMatch.Groups[2]), GetHex(hexMatch.Groups[3]));
+                        return;
+                    }
+                    catch (Exception) { }
+                }
+
+                // failure... ideally refund the redeem.
+            }
+        }
+
+        private void SetColor(byte v1, byte v2, byte v3)
+        {
+            //cl_crosshair_blue 0;cl_crosshair_green 0;cl_crosshair_red 255
+            //aim color is now using {cl_crosshair_red} Red, {cl_crosshair_green} Green, and {cl_crosshair_blue} Blue
+            SendCommandAndProcessResponse(string.Format("cl_crosshair_red {0};cl_crosshair_green {1};cl_crosshair_blue {2};", v1, v2, v3),
+                afterCommand: null);
+        }
+        private byte GetByte(Group group)
+        {
+            return byte.Parse(group.Value, System.Globalization.NumberStyles.Integer);
+        }
+        private byte GetHex(Group group)
+        {
+            return byte.Parse(group.Value, System.Globalization.NumberStyles.HexNumber);
         }
 
         #endregion command configuration
