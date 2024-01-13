@@ -213,19 +213,31 @@ namespace TF2SpectatorWin
             ChatCommands.Add(alias.ToLower(), chatCommandDetails);
         }
 
+        public void AddAlias(string alias, string commandName)
+        {
+            if (HasCommand(commandName))
+            {
+                ChatCommandDetails com = ChatCommands[commandName.ToLower()];
+                AddCommand(alias, com);
+                //TODO add alias to com.Aliases
+            }
+        }
+
         private Dictionary<string, ChatCommandDetails> ChatCommands
         { get; set; } = new Dictionary<string, ChatCommandDetails>();
 
         private ChatCommandDetails GetRedeemCommand(string commandText)
         {
-            if (commandText == null)
-                return null;
-
-            string key = commandText.ToLower();
-            if (ChatCommands.ContainsKey(key))
-                return ChatCommands[key];
+            if (HasCommand(commandText))
+                return ChatCommands[commandText.ToLower()];
 
             return null;
+        }
+
+        public bool HasCommand(string key)
+        {
+            if (key == null) return false;
+            return ChatCommands.ContainsKey(key.ToLower());
         }
 
         private ChatCommandDetails GetChatCommand(string commandText)
@@ -237,7 +249,7 @@ namespace TF2SpectatorWin
                 return new ChatCommandDetails("!help", HelpCommand, "this help command. \"!help commandName\" for help on that command");
 
             string key = "!" + commandText.ToLower();
-            if (ChatCommands.ContainsKey(key))
+            if (HasCommand(key))
                 return ChatCommands[key];
 
             return null;
@@ -265,11 +277,12 @@ namespace TF2SpectatorWin
                 if (string.IsNullOrEmpty(help))
                     help = "?";
 
+                string messagef;
                 if (!("!" + arguments.ToLower()).Contains(com.Command.ToLower()))
-                    message = "(alias for) ";
+                    messagef = "(alias for {0}): {1}";
                 else
-                    message = "";
-                message += com.Command + ": " + help;
+                    messagef = "{0}: {1}";
+                message = string.Format(messagef, com.Command, help);
             }
 
             SendMessageWithWrapping(message);
@@ -279,7 +292,7 @@ namespace TF2SpectatorWin
         {
             string name = ChatCommands[key].Command;
             if (key.ToLower() != name.ToLower())
-                name = ChatCommands[key].Aliases.FirstOrDefault((n) => n.ToLower() == key.ToLower()) ?? name;
+                name = ChatCommands[key].Aliases.FirstOrDefault((n) => n.ToLower() == key.ToLower()) ?? key;
 
             return name;
         }
@@ -375,5 +388,5 @@ namespace TF2SpectatorWin
             //else
             //    client.SendMessage(e.Channel, $"Welcome {e.Subscriber.DisplayName} to the substers! You just earned 500 points!");
         }
-    }
+   }
 }

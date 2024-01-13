@@ -21,7 +21,6 @@ namespace TF2SpectatorWin
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        private const char CommandSeparator = '\t';
 
         public TF2WindowsViewModel()
         {
@@ -118,17 +117,11 @@ namespace TF2SpectatorWin
                                             "tf2 class selection", RedeemClass,
                                             "Select a TF2 class with 1-9 or Scout, Soldier, Pyro, Demoman, Heavy, Engineer, Medic, Sniper, or Spy");
                 twitch.AddCommand(classSelection);
-                // my reward id in case title changes
-                twitch.AddCommand("cbabba18-d1ec-44ca-9e30-59303812a600", classSelection);
 
                 ChatCommandDetails colorSelection = new ChatCommandDetails(
                                             "crosshair aim color...", RedeemColor,
-                                            "set my crosshair color by color name or by RGB (0-255, 0-255, 0-255 or #xxxxxx)");
+                                            "set my crosshair color by color name (Teal, Azure, SlateGray...) or by RGB (0-255, 0-255, 0-255 or #xxxxxx)");
                 twitch.AddCommand(colorSelection);
-                //TODO add support for a command that just has another command as its action to create aliases in config file.
-                // my reward id in case title changes
-                //twitch.AddCommand("", colorSelection);
-                twitch.AddCommand("!aimColor", colorSelection);
 
                 LoadCommandConfiguration(twitch);
 
@@ -158,13 +151,25 @@ namespace TF2SpectatorWin
                     continue;
                 try
                 {
-                    ChatCommandDetails command = CreateCommandDetails(config);
+                    Config configobj = new Config(config);
 
-                    twitch.AddCommand(command);
-                    foreach (string alias in command.Aliases)
-                        twitch.AddCommand(alias, command);
+                    // support for: newAlias existingCommandName unusedHelp  unused
+                    if (configobj.Names.Length > 0 && twitch.HasCommand(configobj.CommandFormat))
+                    {
+                        foreach (string name in configobj.Names)
+                            twitch.AddAlias(name, configobj.CommandFormat);
+                    }
+                    else
+                    {
+                        ChatCommandDetails command = CreateCommandDetails(configobj);
 
-                    Log.Info("configured command: " + command.Command);
+                        twitch.AddCommand(command);
+
+                        foreach (string alias in command.Aliases)
+                            twitch.AddAlias(alias, command.Command);
+
+                        Log.Info("configured command: " + command.Command);
+                    }
                 }
                 catch (Exception)
                 {
@@ -173,22 +178,15 @@ namespace TF2SpectatorWin
             }
         }
 
-        private ChatCommandDetails CreateCommandDetails(string config)
+        private ChatCommandDetails CreateCommandDetails(Config config)
         {
-            string[] commandParts = config.Split(CommandSeparator);
-            string namePart = commandParts[0];
-            string commandFormat = commandParts[1];
-            string commandHelp = commandParts.Length > 2 ? commandParts[2] : string.Empty;
-            string responseFormat = commandParts.Length > 3 ? commandParts[3] : string.Empty;
-
-            string[] names = namePart.Split('|');
-            string name = names[0];
+            string name = config.Names[0];
             ChatCommandDetails command = new ChatCommandDetails(name,
-                CreateChatCommand(commandFormat, responseFormat),
-                commandHelp);
+                CreateChatCommand(config.CommandFormat, config.ResponseFormat),
+                config.CommandHelp);
 
-            if (names.Length > 1)
-                command.Aliases = names.Where(alias => alias != name).ToList();
+            if (config.Names.Length > 1)
+                command.Aliases = config.Names.Where(alias => alias != name).ToList();
             return command;
         }
 
@@ -232,21 +230,23 @@ namespace TF2SpectatorWin
 
         //read from a file, use this as backup
         private static readonly string commandConfig =
-            "!vrmode" + CommandSeparator + "cl_first_person_uses_world_model 1;wait 20000;cl_first_person_uses_world_model 0" + CommandSeparator + "turns on VR mode for a few minutes\n" +
-            "!burninggibs" + CommandSeparator + "cl_burninggibs 1;wait 20000;cl_burninggibs 0" + CommandSeparator + "turns on burning gibs for a few minutes\n" +
-            "!showposition" + CommandSeparator + "cl_showpos 1;wait 20000;cl_showpos 0" + CommandSeparator + "turns on game position info for a few minutes\n" +
+            "!vrmode|VR mode" + Config.CommandSeparator + "cl_first_person_uses_world_model 1;wait 20000;cl_first_person_uses_world_model 0" + Config.CommandSeparator + "turns on VR mode for a few minutes\n" +
+            "!burninggibs" + Config.CommandSeparator + "cl_burninggibs 1;wait 20000;cl_burninggibs 0" + Config.CommandSeparator + "turns on burning gibs for a few minutes\n" +
+            "!showposition" + Config.CommandSeparator + "cl_showpos 1;wait 20000;cl_showpos 0" + Config.CommandSeparator + "turns on game position info for a few minutes\n" +
 
-            // requires sv_cheats "!3rdperson" + CommandSeparator + "thirdperson;wait 20000;firstperson" + CommandSeparator + "turns on  for a few minutes\n" +
-            // requires sv_cheats "!shake" + CommandSeparator + "shake" + CommandSeparator + "does the demoman charge screenshake\n" +
-            "!crosshair" + CommandSeparator + "cl_crosshair_file {0};wait 20000;cl_crosshair_file \"\"" + CommandSeparator + "needs one argument (like crosshair1, crosshair2 ...) - changes the crosshair to the file argument value for a few minutes\n" +
-            "die" + CommandSeparator + "kill" + CommandSeparator + "instant death in game\n" +
-            "explode" + CommandSeparator + "explode" + CommandSeparator + "explosive instant death in game\n" +
+            // requires sv_cheats "!3rdperson" + Config.CommandSeparator + "thirdperson;wait 20000;firstperson" + Config.CommandSeparator + "turns on  for a few minutes\n" +
+            // requires sv_cheats "!shake" + Config.CommandSeparator + "shake" + Config.CommandSeparator + "does the demoman charge screenshake\n" +
+            "!crosshair|crosshair..." + Config.CommandSeparator + "cl_crosshair_file {0};wait 20000;cl_crosshair_file \"\"" + Config.CommandSeparator + "needs one argument (like crosshair1, crosshair2 ...) - changes the crosshair to the file argument value for a few minutes\n" +
+            "die" + Config.CommandSeparator + "kill" + Config.CommandSeparator + "instant death in game\n" +
+            "explode" + Config.CommandSeparator + "explode" + Config.CommandSeparator + "explosive instant death in game\n" +
 
-            "!hitSound" + CommandSeparator + "tf_dingalingaling_effect" + CommandSeparator + "What hit sound is in use?" + CommandSeparator + "Current hit sound is {1|0:0 (Default)|1:1 (Electro)|2:2 (Notes)|3:3 (Percussion)|4:4 (Retro)|5:5 (Space)|6:6 (Beepo)|7:7 (Vortex)|8:8 (Squasher)}\n" +
+            "!hitSound|hit sound" + Config.CommandSeparator + "tf_dingalingaling_effect" + Config.CommandSeparator + "What hit sound is in use?" + Config.CommandSeparator + "Current hit sound is {1|0:0 (Default)|1:1 (Electro)|2:2 (Notes)|3:3 (Percussion)|4:4 (Retro)|5:5 (Space)|6:6 (Beepo)|7:7 (Vortex)|8:8 (Squasher)}\n" +
 
-            "!bigguns" + CommandSeparator + "tf_use_min_viewmodels 0;wait 20000;tf_use_min_viewmodels 1" + CommandSeparator + "turns off \"min viewmodels\" for a few minutes\n" +
-            "!hiderate|hiderate" + CommandSeparator + "cl_showfps 0;wait 20000;cl_showfps 1" + CommandSeparator + "turns off the game fps display for a few minutes\n" +
-            "!boring" + CommandSeparator + "cl_hud_playerclass_use_playermodel 0;wait 20000;cl_hud_playerclass_use_playermodel 1" + CommandSeparator + "turns off the 3d playermodel for a few minutes\n";
+            "!aimColor|crosshair aim color..." + Config.CommandSeparator + "crosshair aim color..." + Config.CommandSeparator + "alias for built-in command" +
+
+            "!bigguns|big guns" + Config.CommandSeparator + "tf_use_min_viewmodels 0;wait 20000;tf_use_min_viewmodels 1" + Config.CommandSeparator + "turns off \"min viewmodels\" for a few minutes\n" +
+            "!hiderate|hiderate" + Config.CommandSeparator + "cl_showfps 0;wait 20000;cl_showfps 1" + Config.CommandSeparator + "turns off the game fps display for a few minutes\n" +
+            "!boring|boring HUD" + Config.CommandSeparator + "cl_hud_playerclass_use_playermodel 0;wait 20000;cl_hud_playerclass_use_playermodel 1" + Config.CommandSeparator + "turns off the 3d playermodel for a few minutes\n";
 
         private static readonly Regex scout = new Regex("scout|Jeremy|scunt|baby|1", RegexOptions.IgnoreCase);
         private static readonly Regex soldier = new Regex("soldier|Jane|Doe|solly|2", RegexOptions.IgnoreCase);
@@ -289,9 +289,19 @@ namespace TF2SpectatorWin
                 afterCommand: null);
         }
 
-        private static readonly Regex rgb = new Regex(@".*(\d{1,3})\D+(\d{1,3})\D+(\d{1,3}).*", RegexOptions.IgnoreCase);
-        private static readonly Regex hrgb = new Regex(@".*([\dA-F]{2})[^\dA-F]*([\dA-F]{2})[^\dA-F]*([\dA-F]{2}).*", RegexOptions.IgnoreCase);
         private void RedeemColor(string userDisplayName, string arguments)
+        {
+            try
+            {
+                SetColor(arguments);
+            }
+            catch (Exception)
+            {
+                // failure... ideally refund the redeem.
+            }
+        }
+
+        private void SetColor(string arguments)
         {
             try
             {
@@ -306,43 +316,56 @@ namespace TF2SpectatorWin
                 SetColor(clr.R, clr.G, clr.B);
                 return;
             }
-            catch (FormatException)
+            //catch (FormatException)
+            catch (Exception)
+            {
+            }
+
+            // second chance
+            SetColorFromNumbers(arguments);
+        }
+
+        private void SetColor(byte r, byte g, byte b)
+        {
+            //cl_crosshair_blue 0;cl_crosshair_green 0;cl_crosshair_red 255
+            //aim color is now using {cl_crosshair_red} Red, {cl_crosshair_green} Green, and {cl_crosshair_blue} Blue
+            SendCommandAndProcessResponse(string.Format("cl_crosshair_red {0};cl_crosshair_green {1};cl_crosshair_blue {2};", r, g, b),
+                afterCommand: null);
+        }
+
+        private static readonly Regex rgb = new Regex(@".*(\d{1,3})\D+(\d{1,3})\D+(\d{1,3}).*", RegexOptions.IgnoreCase);
+        private static readonly Regex hrgb = new Regex(@".*([\dA-F]{2})[^\dA-F]*([\dA-F]{2})[^\dA-F]*([\dA-F]{2}).*", RegexOptions.IgnoreCase);
+        private void SetColorFromNumbers(string arguments)
+        {
+            try
             {
                 Match rgbMatch = rgb.Match(arguments);
                 if (rgbMatch.Success)
                 {
-                    try
-                    {
-                        SetColor(GetByte(rgbMatch.Groups[1]), GetByte(rgbMatch.Groups[2]), GetByte(rgbMatch.Groups[3]));
-                        return;
-                    }
-                    catch (Exception)
-                    {
-                        // values over 255 would do a formatexception or maybe overflow
-                    }
+                    SetColor(GetByte(rgbMatch.Groups[1]), GetByte(rgbMatch.Groups[2]), GetByte(rgbMatch.Groups[3]));
+                    return;
                 }
+            }
+            catch (Exception)
+            {
+                // values over 255 would do a formatexception or maybe overflow
+            }
 
+            try
+            {
                 Match hexMatch = hrgb.Match(arguments);
                 if (hexMatch.Success)
                 {
-                    try
-                    {
-                        SetColor(GetHex(hexMatch.Groups[1]), GetHex(hexMatch.Groups[2]), GetHex(hexMatch.Groups[3]));
-                        return;
-                    }
-                    catch (Exception) { }
+                    SetColor(GetHex(hexMatch.Groups[1]), GetHex(hexMatch.Groups[2]), GetHex(hexMatch.Groups[3]));
+                    return;
                 }
-
-                // failure... ideally refund the redeem.
             }
-        }
+            catch (Exception)
+            {
+                // use the common exception
+            }
 
-        private void SetColor(byte v1, byte v2, byte v3)
-        {
-            //cl_crosshair_blue 0;cl_crosshair_green 0;cl_crosshair_red 255
-            //aim color is now using {cl_crosshair_red} Red, {cl_crosshair_green} Green, and {cl_crosshair_blue} Blue
-            SendCommandAndProcessResponse(string.Format("cl_crosshair_red {0};cl_crosshair_green {1};cl_crosshair_blue {2};", v1, v2, v3),
-                afterCommand: null);
+            throw new FormatException("could not parse a color from " + arguments);
         }
         private byte GetByte(Group group)
         {
@@ -704,5 +727,27 @@ namespace TF2SpectatorWin
         public string OutputString { get; set; }
 
         public string CommandLog { get; set; }
+    }
+
+    internal class Config
+    {
+        public const char CommandSeparator = '\t';
+
+        public Config(string config)
+        {
+            string[] commandParts = config.Split(CommandSeparator);
+
+            string namePart = commandParts[0];
+            Names = namePart.Split('|');
+
+            CommandFormat = commandParts[1];
+            CommandHelp = commandParts.Length > 2 ? commandParts[2] : string.Empty;
+            ResponseFormat = commandParts.Length > 3 ? commandParts[3] : string.Empty;
+        }
+
+        public string[] Names { get; }
+        public string CommandFormat { get; }
+        public string CommandHelp { get; }
+        public string ResponseFormat { get; }
     }
 }
