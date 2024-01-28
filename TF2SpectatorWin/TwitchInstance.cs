@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
+using SimpleExpressionEvaluator;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TwitchAuthInterface;
 using TwitchLib.Api;
@@ -368,11 +370,46 @@ namespace TF2SpectatorWin
 
         private void Client_OnMessageReceived(object sender, OnMessageReceivedArgs e)
         {
+            string msg = e.ChatMessage.Message;
+
+            // Math in chat feature
+            string response = GetMathAnswer(msg);
+            if (response != null)
+            {
+                SendMessageWithWrapping(response); 
+                return;
+            }
+
             Console.WriteLine(e.ChatMessage.Channel + " MESSAGE:" +
-                e.ChatMessage.BotUsername + "got from " + e.ChatMessage.Username + "message: " + e.ChatMessage.Message 
-                +" reward:"+ e.ChatMessage.CustomRewardId);
+                e.ChatMessage.BotUsername + "got from " + e.ChatMessage.Username + "message: " + e.ChatMessage.Message
+                + " reward:" + e.ChatMessage.CustomRewardId);
             //if (e.ChatMessage.Message.Contains("badword"))
             //    client.TimeoutUser(e.ChatMessage.Channel, e.ChatMessage.Username, TimeSpan.FromMinutes(30), "Bad word! 30 minute timeout!");
+        }
+
+        // only try messages that have at least two numbers and between them something mathish other than a decimal point.
+        private readonly Regex mathRegex = new Regex("\\d.*[-+/*^\\p{IsMathematicalOperators}\\p{Sm}].*\\d");
+        private readonly ExpressionEvaluator mathDoer = new ExpressionEvaluator();
+        private string GetMathAnswer(string msg)
+        {
+            //consider stripping before/after text one might enter, like "what is () = ?"
+
+            if (!mathRegex.IsMatch(msg))
+                return null;
+
+            try
+            {
+                string mathAnswer = mathDoer.Evaluate(msg).ToString();
+                if (mathAnswer == null)
+                    return null;
+
+                return (msg + " = " + mathAnswer);
+            }
+            catch (Exception ex)
+            {
+                //Console.WriteLine(ex.Message);
+                return null;
+            }
         }
 
         private void Client_OnWhisperReceived(object sender, OnWhisperReceivedArgs e)
