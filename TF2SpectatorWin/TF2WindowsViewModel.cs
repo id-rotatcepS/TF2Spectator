@@ -1,6 +1,7 @@
 ﻿using AspenWin;
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -51,6 +52,60 @@ namespace TF2SpectatorWin
         private ICommand _SaveConfig;
         public ICommand SaveConfigCommand => _SaveConfig
             ?? (_SaveConfig = new RelayCommand<object>((o) => SaveConfig()));
+
+
+        public List<Config> CommandData { get; } = new List<Config>();
+
+        private void OpenCommands()
+        {
+            Commands win = new Commands();
+
+            CommandData.Clear();
+            foreach (string config in ReadCommandConfig())
+            {
+                if (config.Trim().Length == 0)
+                    continue;
+                try
+                {
+                    Config configobj = new Config(config);
+                    CommandData.Add(configobj);
+                }
+                catch (Exception)
+                {
+                    //"bad command config: " + config
+                }
+            }
+
+            win.DataContext = this;
+            win.Show();
+
+            // TODO backup config file,
+            // write config file from CommandData.
+            WriteCommandConfig();
+        }
+
+        private void WriteCommandConfig()
+        {
+            List<string> lines = new List<string>();
+            foreach (Config config in CommandData)
+            {
+                lines.Add(config.ToString());
+            }
+            try
+            {
+                string filename = "TF2SpectatorCommands_test.tsv";
+                File.WriteAllLines(filename, lines);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex.Message);
+            }
+        }
+
+        private ICommand _OpenCommands;
+        public ICommand OpenCommandsCommand => _OpenCommands
+            ?? (_OpenCommands = new RelayCommand<object>((o) => OpenCommands()));
+
 
         private static TF2Instance _tf2 = null;
 
@@ -738,16 +793,43 @@ namespace TF2SpectatorWin
             string[] commandParts = config.Split(CommandSeparator);
 
             string namePart = commandParts[0];
-            Names = namePart.Split('|');
+            NameAndAliases = namePart;
 
             CommandFormat = commandParts[1];
             CommandHelp = commandParts.Length > 2 ? commandParts[2] : string.Empty;
             ResponseFormat = commandParts.Length > 3 ? commandParts[3] : string.Empty;
         }
 
-        public string[] Names { get; }
-        public string CommandFormat { get; }
-        public string CommandHelp { get; }
-        public string ResponseFormat { get; }
+        public override string ToString()
+        {
+            return NameAndAliases + CommandSeparator + CommandFormat + CommandSeparator + CommandHelp + CommandSeparator + ResponseFormat;
+        }
+
+        //internal readonly string COMMENT = "#";
+        //public bool IsEnabled
+        //{
+        //    get => !NameAndAliases.StartsWith(COMMENT);
+        //    //set
+        //    //{
+        //    //    if (IsEnabled && value) NameAndAliases = COMMENT + NameAndAliases;
+        //    //    else
+        //    //    if (!IsEnabled && !value) NameAndAliases = NamesWithoutComment();
+        //    //}
+        //}
+
+        //private string NamesWithoutComment()
+        //{
+        //    return NameAndAliases?.Substring(COMMENT.Length);
+        //}
+
+        public string NameAndAliases { get; set; }
+        internal string[] Names =>
+            //(IsEnabled ? 
+            NameAndAliases
+            //: NamesWithoutComment())
+            .Split('|');
+        public string CommandFormat { get; set; }
+        public string CommandHelp { get; set; }
+        public string ResponseFormat { get; set; }
     }
 }
