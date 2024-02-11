@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -37,6 +38,10 @@ namespace TF2SpectatorWin
             // hide tf2 unless they've configured the launch button or haven't configured anything.
             TF2Expanded = !string.IsNullOrEmpty(TF2Path)
                 || string.IsNullOrEmpty(BotDetectorLog);
+
+            CommandData = new ObservableCollection<Config>();
+            CommandData.CollectionChanged +=
+                (o, b) => CommandDataChanged = true;
         }
 
         private ASPEN.AspenLogging Log => ASPEN.Aspen.Log;
@@ -53,13 +58,35 @@ namespace TF2SpectatorWin
         public ICommand SaveConfigCommand => _SaveConfig
             ?? (_SaveConfig = new RelayCommand<object>((o) => SaveConfig()));
 
-
-        public List<Config> CommandData { get; } = new List<Config>();
+        // NOTE: ObservableCollection is important for DataGrid edit/delete to work correctly
+        public ObservableCollection<Config> CommandData { get; }
 
         private void OpenCommands()
         {
             Commands win = new Commands();
+            //win.CommandsDataGrid.AddingNewItem += (o, e) => { };
+            //win.CommandsDataGrid.Drop += ;
+            // I guess this is the modern version of .CellValueChanged and .CellEndEdit
+            win.CommandsDataGrid.CellEditEnding += (o, editingEvent) =>
+            {
+                if (editingEvent.EditAction == System.Windows.Controls.DataGridEditAction.Commit)
+                {
+                    CommandDataChanged = true;
+                    //b.Row.Item; 
+                }
+            };
 
+            PrepareCommandData(win);
+
+            win.DataContext = this;
+
+            win.Closed += CommandsClosedSaveChanges;
+
+            win.Show();
+        }
+
+        private void PrepareCommandData(Commands win)
+        {
             CommandData.Clear();
             foreach (string config in ReadCommandConfig())
             {
@@ -75,13 +102,33 @@ namespace TF2SpectatorWin
                     //"bad command config: " + config
                 }
             }
+            CommandDataChanged = false;
+        }
 
-            win.DataContext = this;
-            win.Show();
+        private bool CommandDataChanged = false;
+        private readonly string configFilename = "TF2SpectatorCommands.tsv";
 
-            // TODO backup config file,
-            // write config file from CommandData.
+        private void CommandsClosedSaveChanges(object sender, EventArgs e)
+        {
+            if (!CommandDataChanged) return;
+
+            BackupConfigFile();
+
             WriteCommandConfig();
+
+            // then reload the file - SetTwitchInstance
+            if (IsTwitchConnected)
+            {
+                SetTwitchInstance();
+            }
+        }
+
+        private void BackupConfigFile()
+        {
+            File.Copy(configFilename, 
+                string.Format("{0}-{1}", 
+                DateTime.Now.ToString("yyyyMMddTHHmmss"), 
+                configFilename));
         }
 
         private void WriteCommandConfig()
@@ -93,8 +140,7 @@ namespace TF2SpectatorWin
             }
             try
             {
-                string filename = "TF2SpectatorCommands_test.tsv";
-                File.WriteAllLines(filename, lines);
+                File.WriteAllLines(configFilename, lines);
             }
             catch (Exception ex)
             {
@@ -105,6 +151,47 @@ namespace TF2SpectatorWin
         private ICommand _OpenCommands;
         public ICommand OpenCommandsCommand => _OpenCommands
             ?? (_OpenCommands = new RelayCommand<object>((o) => OpenCommands()));
+
+        public Config SelectedCommand { get; set; }
+        public int SelectedCommandIndex { get; set; }
+
+        public void DataGridUp()
+        {
+            if (SelectedCommandIndex < 0 || SelectedCommandIndex == 0)
+                return;
+            int newIndex = SelectedCommandIndex - 1;
+            CommandData.Move(SelectedCommandIndex, newIndex);
+        }
+
+        private ICommand _DataGridUp;
+        public ICommand DataGridUpCommand=> _DataGridUp
+            ?? (_DataGridUp = new RelayCommand<object>((o) => DataGridUp()));
+
+        public void DataGridDown()
+        {
+            if (SelectedCommandIndex < 0 || SelectedCommandIndex >= CommandData.Count - 1)
+                return;
+            int newIndex = SelectedCommandIndex + 1;
+            CommandData.Move(SelectedCommandIndex, newIndex);
+        }
+
+        private ICommand _DataGridDown;
+        public ICommand DataGridDownCommand=> _DataGridDown
+            ?? (_DataGridDown = new RelayCommand<object>((o) => DataGridDown()));
+
+        public void DataGridAdd(System.Windows.Controls.DataGrid dataGrid)
+        {
+            int newIndex = SelectedCommandIndex + 1;
+            CommandData.Insert(newIndex, new Config("NAME\tCOMMAND"));
+
+            //dataGrid.SelectedIndex = newIndex;
+
+            //dataGrid.BeginEdit();
+        }
+
+        private ICommand _DataGridAdd;
+        public ICommand DataGridAddCommand => _DataGridAdd
+            ?? (_DataGridAdd = new RelayCommand<object>((o) => DataGridAdd(o as System.Windows.Controls.DataGrid)));
 
 
         private static TF2Instance _tf2 = null;
