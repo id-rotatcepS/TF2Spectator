@@ -334,15 +334,22 @@ namespace TF2SpectatorWin
 
         private ChatCommandDetails.ChatCommand CreateChatCommand(string commandFormat, string responseFormat)
         {
-            return (userDisplayName, args) => SendCommandAndProcessResponse(
+            return (userDisplayName, args, messageID) => SendCommandAndProcessResponse(
 
                 CustomFormat(commandFormat, userDisplayName, args),
 
                 (response) =>
                 {
+                    if (Twitch == null) 
+                        return;
+
                     string chat = CustomFormat(responseFormat, userDisplayName, response);
                     if (!string.IsNullOrWhiteSpace(chat))
-                        Twitch?.SendMessageWithWrapping(chat);
+                        if (string.IsNullOrEmpty(messageID))
+                            Twitch.SendMessageWithWrapping(chat);
+                        else
+                            Twitch.SendReplyWithWrapping(messageID, chat);
+
                 });
         }
 
@@ -399,7 +406,7 @@ namespace TF2SpectatorWin
         private static readonly Regex medic = new Regex("medic|Ludwig|Humboldt|7", RegexOptions.IgnoreCase);
         private static readonly Regex sniper = new Regex("sniper|Mick|Mundy|8", RegexOptions.IgnoreCase);
         private static readonly Regex spy = new Regex("spy|french|france|9", RegexOptions.IgnoreCase);
-        private void RedeemClass(string userDisplayName, string arguments)
+        private void RedeemClass(string userDisplayName, string arguments, string messageID)
         {
             // in order of my preference - if they give me somethign ambiguous it gets the first one on this list.
             string joinas;
@@ -424,14 +431,12 @@ namespace TF2SpectatorWin
             else
                 joinas = "demoman";
 
-            Twitch.SendMessageWithWrapping(string.Format("Ok, {0}, we will switch to the class '{1}'", userDisplayName, joinas));
+            Twitch.SendReplyWithWrapping(messageID, string.Format("Ok, {0}, we will switch to the class '{1}'", userDisplayName, joinas));
             string cmd = "join_class " + joinas;
-            SendCommandAndProcessResponse(
-                cmd,
-                afterCommand: null);
+            SendCommandAndNoResponse(cmd);
         }
 
-        private void RedeemColor(string userDisplayName, string arguments)
+        private void RedeemColor(string userDisplayName, string arguments, string messageID)
         {
             try
             {
@@ -471,8 +476,7 @@ namespace TF2SpectatorWin
         {
             //cl_crosshair_blue 0;cl_crosshair_green 0;cl_crosshair_red 255
             //aim color is now using {cl_crosshair_red} Red, {cl_crosshair_green} Green, and {cl_crosshair_blue} Blue
-            SendCommandAndProcessResponse(string.Format("cl_crosshair_red {0};cl_crosshair_green {1};cl_crosshair_blue {2};", r, g, b),
-                afterCommand: null);
+            SendCommandAndNoResponse(string.Format("cl_crosshair_red {0};cl_crosshair_green {1};cl_crosshair_blue {2};", r, g, b));
         }
 
         private static readonly Regex rgb = new Regex(@".*(\d{1,3})\D+(\d{1,3})\D+(\d{1,3}).*", RegexOptions.IgnoreCase);
@@ -812,6 +816,10 @@ namespace TF2SpectatorWin
             });
 
             afterTask.Wait();
+        }
+        private void SendCommandAndNoResponse(string consoleCommand)
+        {
+            SendCommandAndProcessResponse(consoleCommand, null);
         }
 
         private void SetOutputString(string response)

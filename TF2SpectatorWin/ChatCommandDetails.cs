@@ -4,7 +4,7 @@ namespace TF2SpectatorWin
 {
     public class ChatCommandDetails
     {
-        public delegate void ChatCommand(string userDisplayName, string arguments);
+        public delegate void ChatCommand(string userDisplayName, string arguments, string messageID);
 
         public ChatCommandDetails(string command, ChatCommand commandAction, string helpText)
         {
@@ -20,11 +20,12 @@ namespace TF2SpectatorWin
         public string Command { get; set; }
         public IEnumerable<string> Aliases { get; internal set; }
 
-        public void InvokeCommand(string userName, string userInput)
+        public void InvokeCommand(string userName, string userInput, string messageID)
         {
             Action?.Invoke(
                 userName,
-                CleanArgs(userInput));
+                CleanArgs(userInput),
+                messageID);
         }
 
         /// <summary>
