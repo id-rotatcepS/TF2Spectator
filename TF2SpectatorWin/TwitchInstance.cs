@@ -176,11 +176,15 @@ namespace TF2SpectatorWin
             ChatCommandDetails commandDetails = GetRedeemCommandByNameOrID(redemption);
             string userName = redemption.User.DisplayName;
             string userInput = redemption.UserInput;
+            //the redemption.Id is not a message id to reply to. Using it causes no message at all
+            string messageID = null;
+
             // redemption.Reward.Cost
             commandDetails
                 ?.InvokeCommand(
                     userName,
-                    userInput);
+                    userInput,
+                    messageID);
         }
 
         private ChatCommandDetails GetRedeemCommandByNameOrID(Redemption redemption)
@@ -196,10 +200,12 @@ namespace TF2SpectatorWin
             ChatCommandDetails commandDetails = GetChatCommand(chatCommand.CommandText);
             string userName = chatCommand.ChatMessage.DisplayName;
             string userInput = chatCommand.ArgumentsAsString;
+            string messageID = chatCommand.ChatMessage.Id;
             commandDetails
                 ?.InvokeCommand(
                     userName,
-                    userInput);
+                    userInput,
+                    messageID);
         }
 
         public void AddCommand(ChatCommandDetails chatCommandDetails)
@@ -257,7 +263,7 @@ namespace TF2SpectatorWin
             return null;
         }
 
-        private void HelpCommand(string userDisplayName, string arguments)
+        private void HelpCommand(string userDisplayName, string arguments, string messageID)
         {
             string message;
             if (string.IsNullOrEmpty(arguments))
@@ -287,7 +293,7 @@ namespace TF2SpectatorWin
                 message = string.Format(messagef, com.Command, help);
             }
 
-            SendMessageWithWrapping(message);
+            SendReplyWithWrapping(messageID, message);
         }
 
         private string GetMatchingCommandName(string key)
@@ -307,12 +313,29 @@ namespace TF2SpectatorWin
         /// <param name="message"></param>
         public void SendMessageWithWrapping(string message)
         {
+            SendMessageOrReplyWithWrapping(messageID: null, message);
+        }
+        private void SendMessageOrReplyWithWrapping(string messageID, string message)
+        {
             string[] messages = SplitMessage(message);
             foreach (string msg in messages)
                 if (Client == null || !Client.JoinedChannels.Any())
                     Console.WriteLine(msg);
                 else
-                    Client.SendMessage(TwitchUsername, msg);
+                {
+                    if (string.IsNullOrEmpty(messageID))
+                    {
+                        Client.SendMessage(TwitchUsername, msg);
+                        // only reply to FIRST wrapped message.
+                        messageID = null;
+                    }
+                    else
+                        Client.SendReply(TwitchUsername, messageID, msg);
+                }
+        }
+        public void SendReplyWithWrapping(string messageID, string message)
+        {
+            SendMessageOrReplyWithWrapping(messageID, message);
         }
 
         private string[] SplitMessage(string message)
@@ -376,7 +399,7 @@ namespace TF2SpectatorWin
             string response = GetMathAnswer(msg);
             if (response != null)
             {
-                SendMessageWithWrapping(response); 
+                SendReplyWithWrapping(e.ChatMessage.Id, response); 
                 return;
             }
 

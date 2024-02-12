@@ -21,7 +21,6 @@ namespace TF2SpectatorWin
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-
         public TF2WindowsViewModel()
         {
             // Using ASPEN for common needs
@@ -36,11 +35,13 @@ namespace TF2SpectatorWin
             // hide tf2 unless they've configured the launch button or haven't configured anything.
             TF2Expanded = !string.IsNullOrEmpty(TF2Path)
                 || string.IsNullOrEmpty(BotDetectorLog);
+
+            CommandsEditor = new CommandsEditorModel(this);
         }
 
-        private ASPEN.AspenLogging Log => ASPEN.Aspen.Log;
+        internal ASPEN.AspenLogging Log => ASPEN.Aspen.Log;
 
-        private ASPEN.AspenUserSettings Option => ASPEN.Aspen.Option;
+        internal ASPEN.AspenUserSettings Option => ASPEN.Aspen.Option;
 
         private void SaveConfig()
         {
@@ -51,6 +52,11 @@ namespace TF2SpectatorWin
         private ICommand _SaveConfig;
         public ICommand SaveConfigCommand => _SaveConfig
             ?? (_SaveConfig = new RelayCommand<object>((o) => SaveConfig()));
+
+
+        private CommandsEditorModel CommandsEditor;
+        public ICommand OpenCommandsCommand => CommandsEditor.OpenCommandsCommand;
+
 
         private static TF2Instance _tf2 = null;
 
@@ -93,7 +99,7 @@ namespace TF2SpectatorWin
         private TwitchInstance Twitch => _twitch
             ?? SetTwitchInstance();
 
-        private TwitchInstance SetTwitchInstance()
+        internal TwitchInstance SetTwitchInstance()
         {
             try
             {
@@ -113,15 +119,7 @@ namespace TF2SpectatorWin
                 // instantiating TwitchInstance initializes AuthToken if it wasn't already set. Record it in view/options.
                 AuthToken = TwitchInstance.AuthToken;
 
-                ChatCommandDetails classSelection = new ChatCommandDetails(
-                                            "tf2 class selection", RedeemClass,
-                                            "Select a TF2 class with 1-9 or Scout, Soldier, Pyro, Demoman, Heavy, Engineer, Medic, Sniper, or Spy");
-                twitch.AddCommand(classSelection);
-
-                ChatCommandDetails colorSelection = new ChatCommandDetails(
-                                            "crosshair aim color...", RedeemColor,
-                                            "set my crosshair color by color name (Teal, Azure, SlateGray...) or by RGB (0-255, 0-255, 0-255 or #xxxxxx)");
-                twitch.AddCommand(colorSelection);
+                LoadSpecialCommands(twitch);
 
                 LoadCommandConfiguration(twitch);
 
@@ -142,6 +140,19 @@ namespace TF2SpectatorWin
         }
 
         #region command configuration
+
+        private void LoadSpecialCommands(TwitchInstance twitch)
+        {
+            ChatCommandDetails classSelection = new ChatCommandDetails(
+                                        "tf2 class selection", RedeemClass,
+                                        "Select a TF2 class with 1-9 or Scout, Soldier, Pyro, Demoman, Heavy, Engineer, Medic, Sniper, or Spy");
+            twitch.AddCommand(classSelection);
+
+            ChatCommandDetails colorSelection = new ChatCommandDetails(
+                                        "crosshair aim color...", RedeemColor,
+                                        "set my crosshair color by color name (Teal, Azure, SlateGray...) or by RGB (0-255, 0-255, 0-255 or #xxxxxx)");
+            twitch.AddCommand(colorSelection);
+        }
 
         private void LoadCommandConfiguration(TwitchInstance twitch)
         {
@@ -192,15 +203,22 @@ namespace TF2SpectatorWin
 
         private ChatCommandDetails.ChatCommand CreateChatCommand(string commandFormat, string responseFormat)
         {
-            return (userDisplayName, args) => SendCommandAndProcessResponse(
+            return (userDisplayName, args, messageID) => SendCommandAndProcessResponse(
 
                 CustomFormat(commandFormat, userDisplayName, args),
 
                 (response) =>
                 {
+                    if (Twitch == null) 
+                        return;
+
                     string chat = CustomFormat(responseFormat, userDisplayName, response);
                     if (!string.IsNullOrWhiteSpace(chat))
-                        Twitch?.SendMessageWithWrapping(chat);
+                        if (string.IsNullOrEmpty(messageID))
+                            Twitch.SendMessageWithWrapping(chat);
+                        else
+                            Twitch.SendReplyWithWrapping(messageID, chat);
+
                 });
         }
 
@@ -210,11 +228,11 @@ namespace TF2SpectatorWin
                 .Format(commandFormat, args);
         }
 
-        private string[] ReadCommandConfig()
+        internal string[] ReadCommandConfig()
         {
             try
             {
-                string filename = "TF2SpectatorCommands.tsv";
+                string filename = CommandsEditorModel.ConfigFilename;
                 return File.ReadAllLines(filename);
             }
             catch (FileNotFoundException)
@@ -230,23 +248,76 @@ namespace TF2SpectatorWin
 
         //read from a file, use this as backup
         private static readonly string commandConfig =
-            "!vrmode|VR mode" + Config.CommandSeparator + "cl_first_person_uses_world_model 1;wait 20000;cl_first_person_uses_world_model 0" + Config.CommandSeparator + "turns on VR mode for a few minutes\n" +
-            "!burninggibs" + Config.CommandSeparator + "cl_burninggibs 1;wait 20000;cl_burninggibs 0" + Config.CommandSeparator + "turns on burning gibs for a few minutes\n" +
-            "!showposition" + Config.CommandSeparator + "cl_showpos 1;wait 20000;cl_showpos 0" + Config.CommandSeparator + "turns on game position info for a few minutes\n" +
+            "!voteMapA\tnext_map_vote 0\tEnd-of-Round vote for the 1st map option (next_map_vote 0)\t\r\n" +
+            "!voteMapB\tnext_map_vote 1\tEnd-of-Round vote for the 2nd map option (next_map_vote 1)\t\r\n" +
+            "!voteMapC\tnext_map_vote 2\tEnd-of-Round vote for the 3rd map option (next_map_vote 2)\t\r\n" +
+            "!vote|vote next map...\tnext_map_vote {1|a:0|b:1|c:2|first:0|second:1|third:2|current:0|stay:0|zero:0|one:1|two:2}\tEnd-of-Round vote for map choice 0, 1, or 2 (A, B, or C; first, second, or third)\t\r\n" +
 
-            // requires sv_cheats "!3rdperson" + Config.CommandSeparator + "thirdperson;wait 20000;firstperson" + Config.CommandSeparator + "turns on  for a few minutes\n" +
-            // requires sv_cheats "!shake" + Config.CommandSeparator + "shake" + Config.CommandSeparator + "does the demoman charge screenshake\n" +
-            "!crosshair|crosshair..." + Config.CommandSeparator + "cl_crosshair_file {0};wait 20000;cl_crosshair_file \"\"" + Config.CommandSeparator + "needs one argument (like crosshair1, crosshair2 ...) - changes the crosshair to the file argument value for a few minutes\n" +
-            "die" + Config.CommandSeparator + "kill" + Config.CommandSeparator + "instant death in game\n" +
-            "explode" + Config.CommandSeparator + "explode" + Config.CommandSeparator + "explosive instant death in game\n" +
+            "!hitSound\ttf_dingalingaling_effect\tWhat hit sound is in use?\tCurrent hit sound is {1|0:0 (Default)|1:1 (Electro)|2:2 (Notes)|3:3 (Percussion)|4:4 (Retro)|5:5 (Space)|6:6 (Beepo)|7:7 (Vortex)|8:8 (Squasher)}\r\n" +
 
-            "!hitSound|hit sound" + Config.CommandSeparator + "tf_dingalingaling_effect" + Config.CommandSeparator + "What hit sound is in use?" + Config.CommandSeparator + "Current hit sound is {1|0:0 (Default)|1:1 (Electro)|2:2 (Notes)|3:3 (Percussion)|4:4 (Retro)|5:5 (Space)|6:6 (Beepo)|7:7 (Vortex)|8:8 (Squasher)}\n" +
+            "VR mode\tcl_first_person_uses_world_model 1;tf_taunt_first_person 1;wait 20000;cl_first_person_uses_world_model 0;tf_taunt_first_person 0\tturns on VR mode for a few minutes\t\r\n" +
+            //"tf2 die\tkill;wait 1000;kill;wait 1000;kill\tinstant death in game\t\r\n" +
+            "tf2 explode\texplode;wait 1000;explode;wait 1000;explode\texplosive instant death in game\t\r\n" +
+            //requires script setup "attempt a Taunt Kill\ttaunt_kill\tattempt to do a killing taunt if the right weapon is equipped.\t\r\n" +
+            "Big Guns\ttf_use_min_viewmodels 0;wait 20000;tf_use_min_viewmodels 1\tturns off \"min viewmodels\" for a few minutes\t\r\n" +
+            "HIDERATE!\tcl_showfps 0;wait 20000;cl_showfps 1\tturns off the game fps display for a few minutes\t\r\n" +
+            "boring HUD\tcl_hud_playerclass_use_playermodel 0;wait 20000;cl_hud_playerclass_use_playermodel 1\tturns off the 3d playermodel for a few minutes... kinda boring...like jpuck always has on\t\r\n" +
+            "Inspect Item\t+inspect;wait 60;-inspect\tinspect other player items or my held weapon\t\r\n" +
+            //requires script setup "SEASONAL!noisemaker|TF2 Noisemaker\tactionLoopToggle\tturn on/off my noisemaker spam if the season/loadout/server allows\t\r\n" +
+            "tf2 party chat...\tsay_party {0} in twitch says: '{1}'\te.g. \"!sayParty Hi\" says Hi to my party in tf2\t\r\n" +
+            
+            "crosshair aim reset\tvoicemenu 0 1;cl_crosshair_file \"\";cl_crosshair_blue 200;cl_crosshair_green 200;cl_crosshair_red 200;cl_crosshair_scale 32;cl_crosshairalpha 200\tgives me normal crosshair settings.\t\r\n" +
+            "yes!|!yes\tvoicemenu 0 6;cl_crosshair_file crosshair3;cl_crosshair_blue 0;cl_crosshair_green 255;cl_crosshair_red 0;cl_crosshair_scale 3000;wait 500;cl_crosshair_file \"\";cl_crosshair_blue 200;cl_crosshair_green 200;cl_crosshair_red 200;cl_crosshair_scale 32;cl_crosshairalpha 200\tvisually notify me of a positive indication\t\r\n" +
+            "no!|!no\tvoicemenu 0 7;cl_crosshair_file crosshair4;cl_crosshair_blue 0;cl_crosshair_green 0;cl_crosshair_red 255;cl_crosshair_scale 2000;wait 500;cl_crosshair_file \"\";cl_crosshair_blue 200;cl_crosshair_green 200;cl_crosshair_red 200;cl_crosshair_scale 32;cl_crosshairalpha 200\tvisually notify me of a negative indication\t\r\n" +
+            "scope in|!scopeIn\tvoicemenu 2 6;cl_crosshair_file crosshair3;cl_crosshair_blue 0;cl_crosshair_green 0;cl_crosshair_red 0;cl_crosshair_scale 3000;wait 20000;cl_crosshair_file \"\";cl_crosshair_blue 200;cl_crosshair_green 200;cl_crosshair_red 200;cl_crosshair_scale 32;cl_crosshairalpha 200\tmake every class stare down the sniper scope for a few minutes.\t\r\n" +
+            "cataracts\tvoicemenu 2 5;cl_crosshair_file crosshair5;cl_crosshair_blue 255;cl_crosshair_green 255;cl_crosshair_red 255;cl_crosshair_scale 3000;wait 10000; cl_crosshair_file \"\";cl_crosshair_blue 200;cl_crosshair_green 200;cl_crosshair_red 200;cl_crosshair_scale 32;cl_crosshairalpha 200;\tsimulation of turning 44\t\r\n" +
+            "macular degeneration\tvoicemenu 2 5;cl_crosshair_file crosshair5;cl_crosshair_blue 0;cl_crosshair_green 0;cl_crosshair_red 0;cl_crosshair_scale 100;cl_crosshairalpha 200;wait 1000;cl_crosshair_scale 200;wait 1000;cl_crosshair_scale 400;wait 1000;cl_crosshair_scale 800;wait 1000;cl_crosshair_scale 1600;wait 1000;cl_crosshair_scale 3200; wait 5000; cl_crosshair_file \"\";cl_crosshair_blue 200;cl_crosshair_green 200;cl_crosshair_red 200;cl_crosshair_scale 32;cl_crosshairalpha 200;\tsimulation of macular degeneration over time\tWhile there is no cure for macular degeneration, quitting smoking, or never starting, is an important way to prevent AMD.\r\n" +
 
-            "!aimColor|crosshair aim color..." + Config.CommandSeparator + "crosshair aim color..." + Config.CommandSeparator + "alias for built-in command" +
+            "crosshair aim...\tcl_crosshair_file {1|1:crosshair1|2:crosshair2|3:crosshair3|4:crosshair4|5:crosshair5|6:crosshair6|7:crosshair7|reset:|normal:|(.):default|():default|Stock:default|PlusDot:crosshair1|T:crosshair2|TeeDot:crosshair2|o:crosshair3|Circle:crosshair3|x:crosshair4|Ex:crosshair4|.:crosshair5|Dot:crosshair5|PlusOpen:crosshair6|+:crosshair7|Plus:crosshair7}\tneeds one argument (like crosshair1, crosshair2 ...) - changes the crosshair to that file\t\r\n" +
+            "!aimPlusDot\tcl_crosshair_file crosshair1\t-!-\t\r\n" +
+            "!aimTeeDot\tcl_crosshair_file crosshair2\t-,-\t\r\n" +
+            "!aimCircle\tcl_crosshair_file crosshair3\to - a little like the projectile open circle crosshair\t\r\n" +
+            "!aimEx\tcl_crosshair_file crosshair4\tx\t\r\n" +
+            "!aimDot\tcl_crosshair_file crosshair5\t.\t\r\n" +
+            "!aimPlusOpen\tcl_crosshair_file crosshair6\t-:-\t\r\n" +
+            "!aimPlus\tcl_crosshair_file crosshair7\t+ - a little like the melee wide cross crosshair \t\r\n" +
+            "!aimStock\tcl_crosshair_file default\t(.) - like the weapon-spread crosshair\t\r\n" +
+            "!aimBrrr\tcl_crosshair_file notafile\t!%%!\t\r\n" +
+            
+            "crosshair aim size...\tcl_crosshair_scale {1|default:32|normal:32|giant:3000|big:100}\tneeds number argument - changes crosshair size from default scale size of 32\t\r\n" +
+            "crosshair aim red...\tcl_crosshair_red {1}\tset the crosshair red\taim color is now using {cl_crosshair_red} Red, {cl_crosshair_green} Green, and {cl_crosshair_blue} Blue\r\n" +
+            "crosshair aim green...\tcl_crosshair_green {1}\tset the crosshair green\taim color is now using {cl_crosshair_red} Red, {cl_crosshair_green} Green, and {cl_crosshair_blue} Blue\r\n" +
+            "crosshair aim blue...\tcl_crosshair_blue {1}\tset the crosshair blue\taim color is now using {cl_crosshair_red} Red, {cl_crosshair_green} Green, and {cl_crosshair_blue} Blue\r\n" +
+            //requires script setup "Aim Rainbow\talias renderLogo rainbowLogo;logoToggle;wait 20000;logoToggle\trainbow of crosshair colors for a few minutes.\t\r\n" +
+            "!aimSlate\tcl_crosshair_red 47;cl_crosshair_green 79;cl_crosshair_blue 79\ta color similar to slate 47 79 79\taim color is now using {cl_crosshair_red} Red, {cl_crosshair_green} Green, and {cl_crosshair_blue} Blue\r\n" +
+            
+            "hit Default\ttf_dingalingaling_effect \"0\"\t\t\r\n" +
+            "hit Electro\ttf_dingalingaling_effect \"1\"\t\t\r\n" +
+            "hit Notes\ttf_dingalingaling_effect \"2\"\t\t\r\n" +
+            "hit Percussion\ttf_dingalingaling_effect \"3\"\t\t\r\n" +
+            "hit Retro\ttf_dingalingaling_effect \"4\"\t\t\r\n" +
+            "hit Space\ttf_dingalingaling_effect \"5\"\t\t\r\n" +
+            "hit Beepo\ttf_dingalingaling_effect \"6\"\t\t\r\n" +
+            "hit Vortex\ttf_dingalingaling_effect \"7\"\t\t\r\n" +
+            "hit Squasher\ttf_dingalingaling_effect \"8\"\t\t\r\n" +
+            "kill Default\ttf_dingalingaling_last_effect \"0\"\t\t\r\n" +
 
-            "!bigguns|big guns" + Config.CommandSeparator + "tf_use_min_viewmodels 0;wait 20000;tf_use_min_viewmodels 1" + Config.CommandSeparator + "turns off \"min viewmodels\" for a few minutes\n" +
-            "!hiderate|hiderate" + Config.CommandSeparator + "cl_showfps 0;wait 20000;cl_showfps 1" + Config.CommandSeparator + "turns off the game fps display for a few minutes\n" +
-            "!boring|boring HUD" + Config.CommandSeparator + "cl_hud_playerclass_use_playermodel 0;wait 20000;cl_hud_playerclass_use_playermodel 1" + Config.CommandSeparator + "turns off the 3d playermodel for a few minutes\n";
+            //"WHAT DEFAULT\tothertesting\tviewmodel_fov {1};wait 20000;viewmodel_fov 85\t\r\n" +
+            //"HUH 75-90\tfov_desired {1};wait 20000;fov_desired 90\t\t\r\n" +
+            //"useless?!stopWeather\ttf_particles_disable_weather 0;wait 20000;tf_particles_disable_weather 1\tturns off weather effects for a few minutes? didn't work on carrier's snow.\t\r\n" +
+            //"doesntwork!aimOpacity\tcl_crosshairalpha {1}\tneeds a number from 0-255 - changes how opaque the crosshair is from default 200\t\r\n" +
+            "pointless!showPosition\tcl_showpos 1;wait 20000;cl_showpos 0\tturns on game position info for a few minutes\t\r\n" +
+            "mehdefaultclass\tcl_class\tcurrent default class\tCurrent default class is {1}\r\n" +
+            //"DoesntWork!users\tusers\tlist users on server\t{1}\r\n" +
+            "tooAnnoyingToUse!tauntByName\ttaunt_by_name {1}\tIf it's equipped (and you got the name right), then it happens! (\"!tauntByName Taunt: The Schadenfreude\")\t\r\n" +
+            "test\tcl_allowdownload\ttest of output as arg 1\t{0} result: {1}\r\n" +
+            "test2\techo one;echo two;wait 200;echo three\ttest 2 shows result \"two\"\t{0} result: {1}\r\n" +
+            "!aimColor\tcrosshair aim color...\t(just an alias)\t\r\n" +
+            //requires script setup "!aimRainbow\tAim Rainbow\t\t\r\n" +
+            "!aimSize\tcrosshair aim size...\t(just an alias)\t\r\n" +
+            "!resetAim\tcrosshair aim reset\t(just an alias)\t\r\n";
+
+        #region TF2ClassHandling
 
         private static readonly Regex scout = new Regex("scout|Jeremy|scunt|baby|1", RegexOptions.IgnoreCase);
         private static readonly Regex soldier = new Regex("soldier|Jane|Doe|solly|2", RegexOptions.IgnoreCase);
@@ -257,7 +328,7 @@ namespace TF2SpectatorWin
         private static readonly Regex medic = new Regex("medic|Ludwig|Humboldt|7", RegexOptions.IgnoreCase);
         private static readonly Regex sniper = new Regex("sniper|Mick|Mundy|8", RegexOptions.IgnoreCase);
         private static readonly Regex spy = new Regex("spy|french|france|9", RegexOptions.IgnoreCase);
-        private void RedeemClass(string userDisplayName, string arguments)
+        private void RedeemClass(string userDisplayName, string arguments, string messageID)
         {
             // in order of my preference - if they give me somethign ambiguous it gets the first one on this list.
             string joinas;
@@ -282,14 +353,14 @@ namespace TF2SpectatorWin
             else
                 joinas = "demoman";
 
-            Twitch.SendMessageWithWrapping(string.Format("Ok, {0}, we will switch to the class '{1}'", userDisplayName, joinas));
+            Twitch.SendReplyWithWrapping(messageID, string.Format("Ok, {0}, we will switch to the class '{1}'", userDisplayName, joinas));
             string cmd = "join_class " + joinas;
-            SendCommandAndProcessResponse(
-                cmd,
-                afterCommand: null);
+            SendCommandAndNoResponse(cmd);
         }
+        #endregion TF2ClassHandling
 
-        private void RedeemColor(string userDisplayName, string arguments)
+        #region ColorHandling
+        private void RedeemColor(string userDisplayName, string arguments, string messageID)
         {
             try
             {
@@ -329,8 +400,7 @@ namespace TF2SpectatorWin
         {
             //cl_crosshair_blue 0;cl_crosshair_green 0;cl_crosshair_red 255
             //aim color is now using {cl_crosshair_red} Red, {cl_crosshair_green} Green, and {cl_crosshair_blue} Blue
-            SendCommandAndProcessResponse(string.Format("cl_crosshair_red {0};cl_crosshair_green {1};cl_crosshair_blue {2};", r, g, b),
-                afterCommand: null);
+            SendCommandAndNoResponse(string.Format("cl_crosshair_red {0};cl_crosshair_green {1};cl_crosshair_blue {2};", r, g, b));
         }
 
         private static readonly Regex rgb = new Regex(@".*(\d{1,3})\D+(\d{1,3})\D+(\d{1,3}).*", RegexOptions.IgnoreCase);
@@ -375,6 +445,7 @@ namespace TF2SpectatorWin
         {
             return byte.Parse(group.Value, System.Globalization.NumberStyles.HexNumber);
         }
+        #endregion ColorHandling
 
         #endregion command configuration
 
@@ -671,6 +742,10 @@ namespace TF2SpectatorWin
 
             afterTask.Wait();
         }
+        private void SendCommandAndNoResponse(string consoleCommand)
+        {
+            SendCommandAndProcessResponse(consoleCommand, null);
+        }
 
         private void SetOutputString(string response)
         {
@@ -727,27 +802,5 @@ namespace TF2SpectatorWin
         public string OutputString { get; set; }
 
         public string CommandLog { get; set; }
-    }
-
-    internal class Config
-    {
-        public const char CommandSeparator = '\t';
-
-        public Config(string config)
-        {
-            string[] commandParts = config.Split(CommandSeparator);
-
-            string namePart = commandParts[0];
-            Names = namePart.Split('|');
-
-            CommandFormat = commandParts[1];
-            CommandHelp = commandParts.Length > 2 ? commandParts[2] : string.Empty;
-            ResponseFormat = commandParts.Length > 3 ? commandParts[3] : string.Empty;
-        }
-
-        public string[] Names { get; }
-        public string CommandFormat { get; }
-        public string CommandHelp { get; }
-        public string ResponseFormat { get; }
     }
 }

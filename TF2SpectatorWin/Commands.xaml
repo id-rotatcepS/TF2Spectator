@@ -1,0 +1,47 @@
+﻿<Window x:Class="TF2SpectatorWin.Commands"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TF2SpectatorWin"
+        mc:Ignorable="d"
+        Title="Commands" Height="450" Width="800">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="50"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        
+        <StackPanel Grid.Column="0" 
+                    VerticalAlignment="Center">
+            <Button Content="🔺" Command="{Binding DataGridUpCommand}"
+                    Padding="5" Margin="10" />
+            <Button Content="➕" Command="{Binding DataGridAddCommand}"
+                    Padding="5" Margin="10"
+                    CommandTarget="{Binding ElementName=CommandsDataGrid, Mode=OneWay}"/>
+            <Button Content="🔻" Command="{Binding DataGridDownCommand}"
+                    Padding="5" Margin="10" />
+        </StackPanel>
+        
+        <DataGrid x:Name="CommandsDataGrid"
+                  Grid.Column="1"
+                  ItemsSource="{Binding CommandData}" AutoGenerateColumns="True" 
+                  CanUserResizeColumns="True" 
+                  SelectedItem="{Binding SelectedCommand}" SelectedIndex="{Binding SelectedCommandIndex}"
+                  SelectionMode="Single"
+                  CanUserAddRows="True"
+                  CanUserDeleteRows="True" 
+                  ClipboardCopyMode="ExcludeHeader"
+                  MaxColumnWidth="200"
+                  >
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="Add" 
+                              Command="{Binding DataGridAddCommand}"
+                              CommandTarget="{Binding ElementName=CommandsDataGrid, Mode=OneWay}"/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
+        </DataGrid>
+    </Grid>
+    
+</Window>
