@@ -41,14 +41,16 @@
       <StackPanel>
           <Menu x:Name="mainmenu" IsMainMenu="True" >
 
-            <MenuItem Header="Configure">
-              <MenuItem IsChecked="{Binding IsTwitchConnected, Mode=OneWay}" Header="Link Twitch" Command="{Binding LaunchTwitchCommand}"/>
-              <Separator/>
-              <MenuItem Header="Save Config" Command="{Binding SaveConfigCommand}" 
-                        ToolTip="Saved automatically on close"/>
-            </MenuItem>
+                <MenuItem Header="Configure">
+                    <MenuItem IsChecked="{Binding IsTwitchConnected, Mode=OneWay}" Header="Link Twitch" Command="{Binding LaunchTwitchCommand}"/>
+                    <Separator/>
+                    <MenuItem Header="Edit Commands..." Command="{Binding OpenCommandsCommand}"/>
+                    <Separator/>
+                    <MenuItem Header="Save Config" Command="{Binding SaveConfigCommand}" 
+                    ToolTip="Saved automatically on close"/>
+                </MenuItem>
 
-          </Menu>
+            </Menu>
 
         <Expander Header="TF2 ⌨🖱 (Rcon connection)" IsExpanded="{Binding TF2Expanded}">
           <StackPanel>

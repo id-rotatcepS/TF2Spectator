@@ -4,7 +4,6 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,92 +15,48 @@ namespace TF2SpectatorWin
 {
     internal class TF2WindowsViewModel : INotifyPropertyChanged
     {
-        public readonly static string ConfigFileName = "TF2Spectator.config.txt";
         public event PropertyChangedEventHandler PropertyChanged;
         public void ViewNotification(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        private const char CommandSeparator = '\t';
-
         public TF2WindowsViewModel()
         {
-            InitFromConfig();
+            // Using ASPEN for common needs
+            // logging just goes to the Log view textbox
+            ASPEN.Aspen.Log = new TF2SpectatorLog(this);
+
+            // settings load/save to the config file.
+            ASPEN.Aspen.Option = new TF2SpectatorSettings(this);
+            // initialize primary source from loaded option
+            TwitchInstance.AuthToken = Option.Get<string>(nameof(AuthToken));
 
             // hide tf2 unless they've configured the launch button or haven't configured anything.
-            TF2Expanded = !string.IsNullOrEmpty(TF2Path) 
+            TF2Expanded = !string.IsNullOrEmpty(TF2Path)
                 || string.IsNullOrEmpty(BotDetectorLog);
+
+            CommandsEditor = new CommandsEditorModel(this);
         }
 
-        private void InitFromConfig()
-        {
-            string[] lines = new string[0];
-            try
-            {
-                string filename = ConfigFileName;
-                string content = File.ReadAllText(filename);
+        internal ASPEN.AspenLogging Log => ASPEN.Aspen.Log;
 
-                lines = content.Split('\n');
-            }
-            catch (FileNotFoundException)
-            {
-                // expected
-            }
-            catch (Exception ex)
-            {
-                AddLog(ex.Message);
-            }
-
-            TwitchUsername = lines.Length > 0 ? lines[0] : "yourNameHere";
-            AuthToken = lines.Length > 1 ? lines[1] : string.Empty;
-
-            TF2Path = lines.Length > 2 ? lines[2] : @"C:\Program Files (x86)\Steam\steamapps\common\Team Fortress 2";
-
-            RconPassword = lines.Length > 3 ? lines[3] : "test";
-            try
-            {
-                RconPort = ushort.Parse(lines.Length > 4 ? lines[4] : "48000");
-            }
-            catch (Exception ex)
-            {
-                AddLog(ex.Message);
-            }
-            BotDetectorLog = lines.Length > 5 ? lines[5] : string.Empty;
-        }
-
-        private void AddLog(string msg)
-        {
-            CommandLog = CommandLog + "\n" + msg;
-            ViewNotification(nameof(CommandLog));
-        }
+        internal ASPEN.AspenUserSettings Option => ASPEN.Aspen.Option;
 
         private void SaveConfig()
         {
-            string filename = ConfigFileName;
-            StringBuilder content = new StringBuilder();
-            content.AppendLine(TwitchUsername);
-            content.AppendLine(AuthToken);
-
-            content.AppendLine(TF2Path);
-
-            content.AppendLine(RconPassword);
-            content.AppendLine(RconPort.ToString());
-            content.AppendLine(BotDetectorLog);
-
-            try
-            {
-                File.WriteAllText(filename, content.ToString());
-            }
-            catch (Exception ex)
-            {
-                AddLog(ex.Message);
-            }
+            //TODO AspenUserSettings does not include a "save" method.
+            ((TF2SpectatorSettings)Option).SaveConfig();
         }
 
         private ICommand _SaveConfig;
         public ICommand SaveConfigCommand => _SaveConfig
             ?? (_SaveConfig = new RelayCommand<object>((o) => SaveConfig()));
+
+
+        private CommandsEditorModel CommandsEditor;
+        public ICommand OpenCommandsCommand => CommandsEditor.OpenCommandsCommand;
+
 
         private static TF2Instance _tf2 = null;
 
@@ -126,11 +81,11 @@ namespace TF2SpectatorWin
         {
             try
             {
-                return TF2Instance.CreateCommunications();
+                return TF2Instance.CreateCommunications(RconPort, RconPassword);
             }
             catch (Exception e)
             {
-                AddLog("TwitchInstance: " + e.Message);
+                Log.Error("TwitchInstance: " + e.Message);
                 return null;
             }
         }
@@ -144,7 +99,7 @@ namespace TF2SpectatorWin
         private TwitchInstance Twitch => _twitch
             ?? SetTwitchInstance();
 
-        private TwitchInstance SetTwitchInstance()
+        internal TwitchInstance SetTwitchInstance()
         {
             try
             {
@@ -161,23 +116,21 @@ namespace TF2SpectatorWin
             try
             {
                 TwitchInstance twitch = new TwitchInstance(twitchUsername);
-                ChatCommandDetails classSelection = new ChatCommandDetails(
-                                            "tf2 class selection", RedeemClass,
-                                            "Select a TF2 class with 1-9 or Scout, Soldier, Pyro, Demoman, Heavy, Engineer, Medic, Sniper, or Spy");
-                twitch.AddCommand(classSelection);
-                // reward id to make channel points work via messages because I can't get pubsub to work.
-                twitch.AddCommand("cbabba18-d1ec-44ca-9e30-59303812a600", classSelection);
+                // instantiating TwitchInstance initializes AuthToken if it wasn't already set. Record it in view/options.
+                AuthToken = TwitchInstance.AuthToken;
+
+                LoadSpecialCommands(twitch);
 
                 LoadCommandConfiguration(twitch);
 
                 WatchTBDLogFolder();
-                
+
                 return twitch;
             }
             // error handling is handled on launch command instead.
             //catch(Exception e)
             //{
-            //    AddLog("TwitchInstance: " + e.Message);
+            //    Log.Error("TwitchInstance: " + e.Message);
             //    return null;
             //}
             finally
@@ -188,65 +141,84 @@ namespace TF2SpectatorWin
 
         #region command configuration
 
+        private void LoadSpecialCommands(TwitchInstance twitch)
+        {
+            ChatCommandDetails classSelection = new ChatCommandDetails(
+                                        "tf2 class selection", RedeemClass,
+                                        "Select a TF2 class with 1-9 or Scout, Soldier, Pyro, Demoman, Heavy, Engineer, Medic, Sniper, or Spy");
+            twitch.AddCommand(classSelection);
+
+            ChatCommandDetails colorSelection = new ChatCommandDetails(
+                                        "crosshair aim color...", RedeemColor,
+                                        "set my crosshair color by color name (Teal, Azure, SlateGray...) or by RGB (0-255, 0-255, 0-255 or #xxxxxx)");
+            twitch.AddCommand(colorSelection);
+        }
+
         private void LoadCommandConfiguration(TwitchInstance twitch)
         {
-            foreach (string config in ReadCommandConfig().Split('\n'))
+            foreach (string config in ReadCommandConfig())
             {
                 if (config.Trim().Length == 0)
                     continue;
                 try
                 {
-                    ChatCommandDetails command = CreateCommandDetails(config);
+                    Config configobj = new Config(config);
 
-                    twitch.AddCommand(command);
-                    foreach (string alias in command.Aliases)
-                        twitch.AddCommand(alias, command);
+                    // support for: newAlias existingCommandName unusedHelp  unused
+                    if (configobj.Names.Length > 0 && twitch.HasCommand(configobj.CommandFormat))
+                    {
+                        foreach (string name in configobj.Names)
+                            twitch.AddAlias(name, configobj.CommandFormat);
+                    }
+                    else
+                    {
+                        ChatCommandDetails command = CreateCommandDetails(configobj);
 
-                    AddLog("configured command: " + command.Command);
+                        twitch.AddCommand(command);
+
+                        foreach (string alias in command.Aliases)
+                            twitch.AddAlias(alias, command.Command);
+
+                        Log.Info("configured command: " + command.Command);
+                    }
                 }
                 catch (Exception)
                 {
-                    AddLog("bad command config: " + config);
+                    Log.Error("bad command config: " + config);
                 }
             }
         }
 
-        private ChatCommandDetails CreateCommandDetails(string config)
+        private ChatCommandDetails CreateCommandDetails(Config config)
         {
-            string[] commandParts = config.Split(CommandSeparator);
-            string namePart = commandParts[0];
-            string commandFormat = commandParts[1];
-            string commandHelp = commandParts.Length > 2 ? commandParts[2] : string.Empty;
-            string responseFormat = commandParts.Length > 3 ? commandParts[3] : string.Empty;
-
-            string[] names = namePart.Split('|');
-            string name = names[0];
+            string name = config.Names[0];
             ChatCommandDetails command = new ChatCommandDetails(name,
-                CreateChatCommand(commandFormat, responseFormat),
-                commandHelp);
+                CreateChatCommand(config.CommandFormat, config.ResponseFormat),
+                config.CommandHelp);
 
-            if (names.Length > 1)
-                command.Aliases = names.Where(alias => alias != name).ToList();
+            if (config.Names.Length > 1)
+                command.Aliases = config.Names.Where(alias => alias != name).ToList();
             return command;
         }
 
         private ChatCommandDetails.ChatCommand CreateChatCommand(string commandFormat, string responseFormat)
         {
-            //// Future plans to handle special variable formatting output would have to handle output that could be like this:
-            //// "cl_crosshair_file" = "crosshair1" ( def. "" )
-            //// client archive
-            //// - help text
-            ////// probably just split by " and use [1] and [3]
-
-            return (userDisplayName, args) => SendCommandAndProcessResponse(
+            return (userDisplayName, args, messageID) => SendCommandAndProcessResponse(
 
                 CustomFormat(commandFormat, userDisplayName, args),
 
                 (response) =>
                 {
+                    if (Twitch == null) 
+                        return;
+
                     string chat = CustomFormat(responseFormat, userDisplayName, response);
                     if (!string.IsNullOrWhiteSpace(chat))
-                        Twitch?.SendMessageWithWrapping(chat);
+                        if (string.IsNullOrEmpty(messageID))
+                            Twitch.SendMessageWithWrapping(chat);
+                        else
+                            Twitch.SendReplyWithWrapping(messageID, chat);
+
                 });
         }
 
@@ -256,12 +228,12 @@ namespace TF2SpectatorWin
                 .Format(commandFormat, args);
         }
 
-        private string ReadCommandConfig()
+        internal string[] ReadCommandConfig()
         {
             try
             {
-                string filename = "TF2SpectatorCommands.tsv";
-                return File.ReadAllText(filename);
+                string filename = CommandsEditorModel.ConfigFilename;
+                return File.ReadAllLines(filename);
             }
             catch (FileNotFoundException)
             {
@@ -269,28 +241,83 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                AddLog(ex.Message);
+                Log.Error(ex.Message);
             }
-            return commandConfig;
+            return commandConfig.Split('\n');
         }
 
         //read from a file, use this as backup
         private static readonly string commandConfig =
-            "!vrmode" + CommandSeparator + "cl_first_person_uses_world_model 1;wait 20000;cl_first_person_uses_world_model 0" + CommandSeparator + "turns on VR mode for a few minutes\n" +
-            "!burninggibs" + CommandSeparator + "cl_burninggibs 1;wait 20000;cl_burninggibs 0" + CommandSeparator + "turns on burning gibs for a few minutes\n" +
-            "!showposition" + CommandSeparator + "cl_showpos 1;wait 20000;cl_showpos 0" + CommandSeparator + "turns on game position info for a few minutes\n" +
+            "!voteMapA\tnext_map_vote 0\tEnd-of-Round vote for the 1st map option (next_map_vote 0)\t\r\n" +
+            "!voteMapB\tnext_map_vote 1\tEnd-of-Round vote for the 2nd map option (next_map_vote 1)\t\r\n" +
+            "!voteMapC\tnext_map_vote 2\tEnd-of-Round vote for the 3rd map option (next_map_vote 2)\t\r\n" +
+            "!vote|vote next map...\tnext_map_vote {1|a:0|b:1|c:2|first:0|second:1|third:2|current:0|stay:0|zero:0|one:1|two:2}\tEnd-of-Round vote for map choice 0, 1, or 2 (A, B, or C; first, second, or third)\t\r\n" +
 
-            // requires sv_cheats "!3rdperson" + CommandSeparator + "thirdperson;wait 20000;firstperson" + CommandSeparator + "turns on  for a few minutes\n" +
-            // requires sv_cheats "!shake" + CommandSeparator + "shake" + CommandSeparator + "does the demoman charge screenshake\n" +
-            "!crosshair" + CommandSeparator + "cl_crosshair_file {0};wait 20000;cl_crosshair_file \"\"" + CommandSeparator + "needs one argument (like crosshair1, crosshair2 ...) - changes the crosshair to the file argument value for a few minutes\n" +
-            "die" + CommandSeparator + "kill" + CommandSeparator + "instant death in game\n" +
-            "explode" + CommandSeparator + "explode" + CommandSeparator + "explosive instant death in game\n" +
+            "!hitSound\ttf_dingalingaling_effect\tWhat hit sound is in use?\tCurrent hit sound is {1|0:0 (Default)|1:1 (Electro)|2:2 (Notes)|3:3 (Percussion)|4:4 (Retro)|5:5 (Space)|6:6 (Beepo)|7:7 (Vortex)|8:8 (Squasher)}\r\n" +
 
-            "!hitSound" + CommandSeparator + "tf_dingalingaling_effect" + CommandSeparator + "What hit sound is in use?" + CommandSeparator + "Current hit sound is {1|0:0 (Default)|1:1 (Electro)|2:2 (Notes)|3:3 (Percussion)|4:4 (Retro)|5:5 (Space)|6:6 (Beepo)|7:7 (Vortex)|8:8 (Squasher)}\n" +
+            "VR mode\tcl_first_person_uses_world_model 1;tf_taunt_first_person 1;wait 20000;cl_first_person_uses_world_model 0;tf_taunt_first_person 0\tturns on VR mode for a few minutes\t\r\n" +
+            //"tf2 die\tkill;wait 1000;kill;wait 1000;kill\tinstant death in game\t\r\n" +
+            "tf2 explode\texplode;wait 1000;explode;wait 1000;explode\texplosive instant death in game\t\r\n" +
+            //requires script setup "attempt a Taunt Kill\ttaunt_kill\tattempt to do a killing taunt if the right weapon is equipped.\t\r\n" +
+            "Big Guns\ttf_use_min_viewmodels 0;wait 20000;tf_use_min_viewmodels 1\tturns off \"min viewmodels\" for a few minutes\t\r\n" +
+            "HIDERATE!\tcl_showfps 0;wait 20000;cl_showfps 1\tturns off the game fps display for a few minutes\t\r\n" +
+            "boring HUD\tcl_hud_playerclass_use_playermodel 0;wait 20000;cl_hud_playerclass_use_playermodel 1\tturns off the 3d playermodel for a few minutes... kinda boring...like jpuck always has on\t\r\n" +
+            "Inspect Item\t+inspect;wait 60;-inspect\tinspect other player items or my held weapon\t\r\n" +
+            //requires script setup "SEASONAL!noisemaker|TF2 Noisemaker\tactionLoopToggle\tturn on/off my noisemaker spam if the season/loadout/server allows\t\r\n" +
+            "tf2 party chat...\tsay_party {0} in twitch says: '{1}'\te.g. \"!sayParty Hi\" says Hi to my party in tf2\t\r\n" +
+            
+            "crosshair aim reset\tvoicemenu 0 1;cl_crosshair_file \"\";cl_crosshair_blue 200;cl_crosshair_green 200;cl_crosshair_red 200;cl_crosshair_scale 32;cl_crosshairalpha 200\tgives me normal crosshair settings.\t\r\n" +
+            "yes!|!yes\tvoicemenu 0 6;cl_crosshair_file crosshair3;cl_crosshair_blue 0;cl_crosshair_green 255;cl_crosshair_red 0;cl_crosshair_scale 3000;wait 500;cl_crosshair_file \"\";cl_crosshair_blue 200;cl_crosshair_green 200;cl_crosshair_red 200;cl_crosshair_scale 32;cl_crosshairalpha 200\tvisually notify me of a positive indication\t\r\n" +
+            "no!|!no\tvoicemenu 0 7;cl_crosshair_file crosshair4;cl_crosshair_blue 0;cl_crosshair_green 0;cl_crosshair_red 255;cl_crosshair_scale 2000;wait 500;cl_crosshair_file \"\";cl_crosshair_blue 200;cl_crosshair_green 200;cl_crosshair_red 200;cl_crosshair_scale 32;cl_crosshairalpha 200\tvisually notify me of a negative indication\t\r\n" +
+            "scope in|!scopeIn\tvoicemenu 2 6;cl_crosshair_file crosshair3;cl_crosshair_blue 0;cl_crosshair_green 0;cl_crosshair_red 0;cl_crosshair_scale 3000;wait 20000;cl_crosshair_file \"\";cl_crosshair_blue 200;cl_crosshair_green 200;cl_crosshair_red 200;cl_crosshair_scale 32;cl_crosshairalpha 200\tmake every class stare down the sniper scope for a few minutes.\t\r\n" +
+            "cataracts\tvoicemenu 2 5;cl_crosshair_file crosshair5;cl_crosshair_blue 255;cl_crosshair_green 255;cl_crosshair_red 255;cl_crosshair_scale 3000;wait 10000; cl_crosshair_file \"\";cl_crosshair_blue 200;cl_crosshair_green 200;cl_crosshair_red 200;cl_crosshair_scale 32;cl_crosshairalpha 200;\tsimulation of turning 44\t\r\n" +
+            "macular degeneration\tvoicemenu 2 5;cl_crosshair_file crosshair5;cl_crosshair_blue 0;cl_crosshair_green 0;cl_crosshair_red 0;cl_crosshair_scale 100;cl_crosshairalpha 200;wait 1000;cl_crosshair_scale 200;wait 1000;cl_crosshair_scale 400;wait 1000;cl_crosshair_scale 800;wait 1000;cl_crosshair_scale 1600;wait 1000;cl_crosshair_scale 3200; wait 5000; cl_crosshair_file \"\";cl_crosshair_blue 200;cl_crosshair_green 200;cl_crosshair_red 200;cl_crosshair_scale 32;cl_crosshairalpha 200;\tsimulation of macular degeneration over time\tWhile there is no cure for macular degeneration, quitting smoking, or never starting, is an important way to prevent AMD.\r\n" +
 
-            "!bigguns" + CommandSeparator + "tf_use_min_viewmodels 0;wait 20000;tf_use_min_viewmodels 1" + CommandSeparator + "turns off \"min viewmodels\" for a few minutes\n" +
-            "!hiderate|hiderate" + CommandSeparator + "cl_showfps 0;wait 20000;cl_showfps 1" + CommandSeparator + "turns off the game fps display for a few minutes\n" +
-            "!boring" + CommandSeparator + "cl_hud_playerclass_use_playermodel 0;wait 20000;cl_hud_playerclass_use_playermodel 1" + CommandSeparator + "turns off the 3d playermodel for a few minutes\n";
+            "crosshair aim...\tcl_crosshair_file {1|1:crosshair1|2:crosshair2|3:crosshair3|4:crosshair4|5:crosshair5|6:crosshair6|7:crosshair7|reset:|normal:|(.):default|():default|Stock:default|PlusDot:crosshair1|T:crosshair2|TeeDot:crosshair2|o:crosshair3|Circle:crosshair3|x:crosshair4|Ex:crosshair4|.:crosshair5|Dot:crosshair5|PlusOpen:crosshair6|+:crosshair7|Plus:crosshair7}\tneeds one argument (like crosshair1, crosshair2 ...) - changes the crosshair to that file\t\r\n" +
+            "!aimPlusDot\tcl_crosshair_file crosshair1\t-!-\t\r\n" +
+            "!aimTeeDot\tcl_crosshair_file crosshair2\t-,-\t\r\n" +
+            "!aimCircle\tcl_crosshair_file crosshair3\to - a little like the projectile open circle crosshair\t\r\n" +
+            "!aimEx\tcl_crosshair_file crosshair4\tx\t\r\n" +
+            "!aimDot\tcl_crosshair_file crosshair5\t.\t\r\n" +
+            "!aimPlusOpen\tcl_crosshair_file crosshair6\t-:-\t\r\n" +
+            "!aimPlus\tcl_crosshair_file crosshair7\t+ - a little like the melee wide cross crosshair \t\r\n" +
+            "!aimStock\tcl_crosshair_file default\t(.) - like the weapon-spread crosshair\t\r\n" +
+            "!aimBrrr\tcl_crosshair_file notafile\t!%%!\t\r\n" +
+            
+            "crosshair aim size...\tcl_crosshair_scale {1|default:32|normal:32|giant:3000|big:100}\tneeds number argument - changes crosshair size from default scale size of 32\t\r\n" +
+            "crosshair aim red...\tcl_crosshair_red {1}\tset the crosshair red\taim color is now using {cl_crosshair_red} Red, {cl_crosshair_green} Green, and {cl_crosshair_blue} Blue\r\n" +
+            "crosshair aim green...\tcl_crosshair_green {1}\tset the crosshair green\taim color is now using {cl_crosshair_red} Red, {cl_crosshair_green} Green, and {cl_crosshair_blue} Blue\r\n" +
+            "crosshair aim blue...\tcl_crosshair_blue {1}\tset the crosshair blue\taim color is now using {cl_crosshair_red} Red, {cl_crosshair_green} Green, and {cl_crosshair_blue} Blue\r\n" +
+            //requires script setup "Aim Rainbow\talias renderLogo rainbowLogo;logoToggle;wait 20000;logoToggle\trainbow of crosshair colors for a few minutes.\t\r\n" +
+            "!aimSlate\tcl_crosshair_red 47;cl_crosshair_green 79;cl_crosshair_blue 79\ta color similar to slate 47 79 79\taim color is now using {cl_crosshair_red} Red, {cl_crosshair_green} Green, and {cl_crosshair_blue} Blue\r\n" +
+            
+            "hit Default\ttf_dingalingaling_effect \"0\"\t\t\r\n" +
+            "hit Electro\ttf_dingalingaling_effect \"1\"\t\t\r\n" +
+            "hit Notes\ttf_dingalingaling_effect \"2\"\t\t\r\n" +
+            "hit Percussion\ttf_dingalingaling_effect \"3\"\t\t\r\n" +
+            "hit Retro\ttf_dingalingaling_effect \"4\"\t\t\r\n" +
+            "hit Space\ttf_dingalingaling_effect \"5\"\t\t\r\n" +
+            "hit Beepo\ttf_dingalingaling_effect \"6\"\t\t\r\n" +
+            "hit Vortex\ttf_dingalingaling_effect \"7\"\t\t\r\n" +
+            "hit Squasher\ttf_dingalingaling_effect \"8\"\t\t\r\n" +
+            "kill Default\ttf_dingalingaling_last_effect \"0\"\t\t\r\n" +
+
+            //"WHAT DEFAULT\tothertesting\tviewmodel_fov {1};wait 20000;viewmodel_fov 85\t\r\n" +
+            //"HUH 75-90\tfov_desired {1};wait 20000;fov_desired 90\t\t\r\n" +
+            //"useless?!stopWeather\ttf_particles_disable_weather 0;wait 20000;tf_particles_disable_weather 1\tturns off weather effects for a few minutes? didn't work on carrier's snow.\t\r\n" +
+            //"doesntwork!aimOpacity\tcl_crosshairalpha {1}\tneeds a number from 0-255 - changes how opaque the crosshair is from default 200\t\r\n" +
+            "pointless!showPosition\tcl_showpos 1;wait 20000;cl_showpos 0\tturns on game position info for a few minutes\t\r\n" +
+            "mehdefaultclass\tcl_class\tcurrent default class\tCurrent default class is {1}\r\n" +
+            //"DoesntWork!users\tusers\tlist users on server\t{1}\r\n" +
+            "tooAnnoyingToUse!tauntByName\ttaunt_by_name {1}\tIf it's equipped (and you got the name right), then it happens! (\"!tauntByName Taunt: The Schadenfreude\")\t\r\n" +
+            "test\tcl_allowdownload\ttest of output as arg 1\t{0} result: {1}\r\n" +
+            "test2\techo one;echo two;wait 200;echo three\ttest 2 shows result \"two\"\t{0} result: {1}\r\n" +
+            "!aimColor\tcrosshair aim color...\t(just an alias)\t\r\n" +
+            //requires script setup "!aimRainbow\tAim Rainbow\t\t\r\n" +
+            "!aimSize\tcrosshair aim size...\t(just an alias)\t\r\n" +
+            "!resetAim\tcrosshair aim reset\t(just an alias)\t\r\n";
+
+        #region TF2ClassHandling
 
         private static readonly Regex scout = new Regex("scout|Jeremy|scunt|baby|1", RegexOptions.IgnoreCase);
         private static readonly Regex soldier = new Regex("soldier|Jane|Doe|solly|2", RegexOptions.IgnoreCase);
@@ -301,7 +328,7 @@ namespace TF2SpectatorWin
         private static readonly Regex medic = new Regex("medic|Ludwig|Humboldt|7", RegexOptions.IgnoreCase);
         private static readonly Regex sniper = new Regex("sniper|Mick|Mundy|8", RegexOptions.IgnoreCase);
         private static readonly Regex spy = new Regex("spy|french|france|9", RegexOptions.IgnoreCase);
-        private void RedeemClass(string userDisplayName, string arguments)
+        private void RedeemClass(string userDisplayName, string arguments, string messageID)
         {
             // in order of my preference - if they give me somethign ambiguous it gets the first one on this list.
             string joinas;
@@ -326,62 +353,151 @@ namespace TF2SpectatorWin
             else
                 joinas = "demoman";
 
-            Twitch.SendMessageWithWrapping(string.Format("Ok, {0}, we will switch to the class '{1}'", userDisplayName, joinas));
+            Twitch.SendReplyWithWrapping(messageID, string.Format("Ok, {0}, we will switch to the class '{1}'", userDisplayName, joinas));
             string cmd = "join_class " + joinas;
-            SendCommandAndProcessResponse(
-                cmd, 
-                afterCommand: null);
+            SendCommandAndNoResponse(cmd);
         }
+        #endregion TF2ClassHandling
+
+        #region ColorHandling
+        private void RedeemColor(string userDisplayName, string arguments, string messageID)
+        {
+            try
+            {
+                SetColor(arguments);
+            }
+            catch (Exception)
+            {
+                // failure... ideally refund the redeem.
+            }
+        }
+
+        private void SetColor(string arguments)
+        {
+            try
+            {
+                //TODO I think ConvertFromString's colors are like "SlateGray" which is not very kind.  Would prefer to be better or use a better tool
+                //System.Drawing.Color.FromName(arguments);
+                //System.Drawing.ColorTranslator.FromHtml(arguments); // also does #FFFFFF
+
+                // handle color names.
+                // This also handles eg. #FFFFFF so we do this first and do our own version if it fails.
+                System.Windows.Media.Color clr = (System.Windows.Media.Color)System.Windows.Media.
+                    ColorConverter.ConvertFromString(arguments);
+                SetColor(clr.R, clr.G, clr.B);
+                return;
+            }
+            //catch (FormatException)
+            catch (Exception)
+            {
+            }
+
+            // second chance
+            SetColorFromNumbers(arguments);
+        }
+
+        private void SetColor(byte r, byte g, byte b)
+        {
+            //cl_crosshair_blue 0;cl_crosshair_green 0;cl_crosshair_red 255
+            //aim color is now using {cl_crosshair_red} Red, {cl_crosshair_green} Green, and {cl_crosshair_blue} Blue
+            SendCommandAndNoResponse(string.Format("cl_crosshair_red {0};cl_crosshair_green {1};cl_crosshair_blue {2};", r, g, b));
+        }
+
+        private static readonly Regex rgb = new Regex(@".*(\d{1,3})\D+(\d{1,3})\D+(\d{1,3}).*", RegexOptions.IgnoreCase);
+        private static readonly Regex hrgb = new Regex(@".*([\dA-F]{2})[^\dA-F]*([\dA-F]{2})[^\dA-F]*([\dA-F]{2}).*", RegexOptions.IgnoreCase);
+        private void SetColorFromNumbers(string arguments)
+        {
+            try
+            {
+                Match rgbMatch = rgb.Match(arguments);
+                if (rgbMatch.Success)
+                {
+                    SetColor(GetByte(rgbMatch.Groups[1]), GetByte(rgbMatch.Groups[2]), GetByte(rgbMatch.Groups[3]));
+                    return;
+                }
+            }
+            catch (Exception)
+            {
+                // values over 255 would do a formatexception or maybe overflow
+            }
+
+            try
+            {
+                Match hexMatch = hrgb.Match(arguments);
+                if (hexMatch.Success)
+                {
+                    SetColor(GetHex(hexMatch.Groups[1]), GetHex(hexMatch.Groups[2]), GetHex(hexMatch.Groups[3]));
+                    return;
+                }
+            }
+            catch (Exception)
+            {
+                // use the common exception
+            }
+
+            throw new FormatException("could not parse a color from " + arguments);
+        }
+        private byte GetByte(Group group)
+        {
+            return byte.Parse(group.Value, System.Globalization.NumberStyles.Integer);
+        }
+        private byte GetHex(Group group)
+        {
+            return byte.Parse(group.Value, System.Globalization.NumberStyles.HexNumber);
+        }
+        #endregion ColorHandling
 
         #endregion command configuration
 
         public string RconPassword
         {
-            get => TF2Instance.rconPassword;
+            get => Option.Get<string>(nameof(RconPassword));
             set
             {
-                TF2Instance.rconPassword = value?.Trim();
+                Option.Set(nameof(RconPassword), value?.Trim());
                 _tf2 = null;
                 ViewNotification(nameof(RconPassword));
                 ViewNotification(nameof(IsTF2Connected));
             }
         }
+
         public ushort RconPort
         {
-            get => TF2Instance.rconPort;
+            get => Option.Get<ushort>(nameof(RconPort));
             set
             {
-                TF2Instance.rconPort = value;
+                Option.Set(nameof(RconPort), value);
                 _tf2 = null;
                 ViewNotification(nameof(RconPort));
                 ViewNotification(nameof(IsTF2Connected));
             }
         }
+
         public string TF2Path
         {
-            get => TF2Instance.path;
+            get => Option.Get<string>(nameof(TF2Path));
             set
             {
-                TF2Instance.path = value?.Trim();
+                Option.Set(nameof(TF2Path), value?.Trim());
                 // no impact on rcon instance (no _tf2 = null;)
+                ViewNotification(nameof(TF2Path));
             }
         }
 
         #region bot detector log handler
-        private string _logFolder = string.Empty;
         /// <summary>
         /// path to the folder containing the tf2_bot_detector general log files that include the launch parameters that contain the randomized password and port.
         /// </summary>
         public string BotDetectorLog
         {
-            get => _logFolder;
+            get => Option.Get<string>(nameof(BotDetectorLog));
             set
             {
-                _logFolder = value?.Trim();
+                Option.Set(nameof(BotDetectorLog), value?.Trim());
                 ViewNotification(nameof(BotDetectorLog));
             }
         }
-
+        
         private static readonly string BotDetectorLogPattern = "*.log";
         private FileSystemWatcher watcher;
         /// <summary>
@@ -415,7 +531,7 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                AddLog("Could not parse bot detector log yet: " + ex.Message);
+                Log.Error("Could not parse bot detector log yet: " + ex.Message);
                 // processing most recent failed (maybe there wasn't one)... no problem, Watcher will process the next one that pops up.
             }
         }
@@ -473,7 +589,7 @@ namespace TF2SpectatorWin
             if (!set)
                 throw new InvalidOperationException("config not found");
 
-            AddLog("Loading bot detector Rcon settings: " + RconPassword + " " + RconPort);
+            Log.Info("Loading bot detector Rcon settings: " + RconPassword + " " + RconPort);
         }
 
         private string GetMostRecentTBDLogFile()
@@ -502,7 +618,7 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                AddLog("Error trying to watch bot detector logs (will not automatically configure): " + ex.Message);
+                Log.Error("Error trying to watch bot detector logs (will not automatically configure): " + ex.Message);
             }
         }
 
@@ -529,13 +645,13 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                AddLog("Error parsing bot detector log: " + ex.Message);
+                Log.Error("Error parsing bot detector log: " + ex.Message);
                 // retry
                 // TODO prevent infinite loop?
                 _ = App.Current.Dispatcher.BeginInvoke(
                     new Action(() =>
                     {
-                        AddLog("trying again");
+                        Log.Info("trying again");
                         Thread.Sleep(1000); 
                         ParseCreatedTBDLogAndKeepTrying(sender, e);
                     }));
@@ -546,22 +662,21 @@ namespace TF2SpectatorWin
         {
             // reset the watcher.
             //TODO prevent a constant error loop.
-            AddLog("Error watching TBD Logs: " + e.GetException()?.Message);
+            Log.Error("Error watching TBD Logs: " + e.GetException()?.Message);
             WatchTBDLogFolder();
         }
-
+        
         #endregion bot detector log handler
 
-        private string _username = string.Empty;
         public string TwitchUsername
         {
-            get => _username;
+            get => Option.Get<string>(nameof(TwitchUsername));
             set
             {
                 string v = value?.Trim();
-                if (!v.Equals(_username))
+                if (!v.Equals(Option.Get<string>(nameof(TwitchUsername))))
                 {
-                    _username = v;
+                    Option.Set(nameof(TwitchUsername), v);
                     DisconnectTwitch();
                 }
             }
@@ -574,12 +689,14 @@ namespace TF2SpectatorWin
             ViewNotification(nameof(IsTwitchConnected));
         }
 
+        // TwitchInstance is primary source, but need to keep Options up to date.
         public string AuthToken
         {
             get => TwitchInstance.AuthToken;
             set
             {
                 TwitchInstance.AuthToken = value?.Trim();
+                Option.Set(nameof(AuthToken), TwitchInstance.AuthToken);
                 DisconnectTwitch();
             }
         }
@@ -608,11 +725,11 @@ namespace TF2SpectatorWin
         /// <param name="afterCommand"></param>
         private void SendCommandAndProcessResponse(string consoleCommand, Action<string> afterCommand)
         {
-            AddLog(consoleCommand);
+            Log.Info(consoleCommand);
 
             if (TF2 == null)
             {
-                AddLog("no TF2 connection");
+                Log.Warning("no TF2 connection");
                 return;
             }
 
@@ -620,10 +737,14 @@ namespace TF2SpectatorWin
             Task afterTask = TF2.SendCommand(cmd, s =>
             {
                 afterCommand?.Invoke(s);
-                AddLog(cmd + ": " + s);
+                Log.Info(cmd + ": " + s);
             });
 
             afterTask.Wait();
+        }
+        private void SendCommandAndNoResponse(string consoleCommand)
+        {
+            SendCommandAndProcessResponse(consoleCommand, null);
         }
 
         private void SetOutputString(string response)
@@ -647,7 +768,7 @@ namespace TF2SpectatorWin
 
         private void LaunchCommandExecute(object obj)
         {
-            TF2Instance.LaunchTF2();
+            TF2Instance.LaunchTF2(TF2Path, RconPort, RconPassword);
         }
 
         private ICommand _LaunchTwitchCommand;
@@ -661,14 +782,14 @@ namespace TF2SpectatorWin
                 if (IsTwitchConnected)
                 {
                     DisconnectTwitch();
-                    AddLog("Disconnected Twitch");
+                    Log.Info("Disconnected Twitch");
                 }
                 else
-                    AddLog("Connected Twitch: " + Twitch?.TwitchUsername);
+                    Log.Info("Connected Twitch: " + Twitch?.TwitchUsername);
             }
             catch (Exception e)
             {
-                AddLog("Twitch Failed: " + e.Message);
+                Log.Error("Twitch Failed: " + e.Message);
             }
         }
 

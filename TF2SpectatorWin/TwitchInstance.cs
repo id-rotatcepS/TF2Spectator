@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
+using SimpleExpressionEvaluator;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using TwitchAuthInterface;
 using TwitchLib.Api;
@@ -69,7 +71,8 @@ namespace TF2SpectatorWin
                 clientID: ClientID);
             // includes redeems in scope even if it's a non-affiliated account
             OAuthResult authResult = oauth.Authorize(ClientOAuthScopes);
-
+            
+            // Throws exception if it was an error result:
             return authResult.AccessToken;
         }
 
@@ -173,11 +176,15 @@ namespace TF2SpectatorWin
             ChatCommandDetails commandDetails = GetRedeemCommandByNameOrID(redemption);
             string userName = redemption.User.DisplayName;
             string userInput = redemption.UserInput;
+            //the redemption.Id is not a message id to reply to. Using it causes no message at all
+            string messageID = null;
+
             // redemption.Reward.Cost
             commandDetails
                 ?.InvokeCommand(
                     userName,
-                    userInput);
+                    userInput,
+                    messageID);
         }
 
         private ChatCommandDetails GetRedeemCommandByNameOrID(Redemption redemption)
@@ -193,10 +200,12 @@ namespace TF2SpectatorWin
             ChatCommandDetails commandDetails = GetChatCommand(chatCommand.CommandText);
             string userName = chatCommand.ChatMessage.DisplayName;
             string userInput = chatCommand.ArgumentsAsString;
+            string messageID = chatCommand.ChatMessage.Id;
             commandDetails
                 ?.InvokeCommand(
                     userName,
-                    userInput);
+                    userInput,
+                    messageID);
         }
 
         public void AddCommand(ChatCommandDetails chatCommandDetails)
@@ -212,19 +221,31 @@ namespace TF2SpectatorWin
             ChatCommands.Add(alias.ToLower(), chatCommandDetails);
         }
 
+        public void AddAlias(string alias, string commandName)
+        {
+            if (HasCommand(commandName))
+            {
+                ChatCommandDetails com = ChatCommands[commandName.ToLower()];
+                AddCommand(alias, com);
+                //TODO add alias to com.Aliases
+            }
+        }
+
         private Dictionary<string, ChatCommandDetails> ChatCommands
         { get; set; } = new Dictionary<string, ChatCommandDetails>();
 
         private ChatCommandDetails GetRedeemCommand(string commandText)
         {
-            if (commandText == null)
-                return null;
-
-            string key = commandText.ToLower();
-            if (ChatCommands.ContainsKey(key))
-                return ChatCommands[key];
+            if (HasCommand(commandText))
+                return ChatCommands[commandText.ToLower()];
 
             return null;
+        }
+
+        public bool HasCommand(string key)
+        {
+            if (key == null) return false;
+            return ChatCommands.ContainsKey(key.ToLower());
         }
 
         private ChatCommandDetails GetChatCommand(string commandText)
@@ -236,13 +257,13 @@ namespace TF2SpectatorWin
                 return new ChatCommandDetails("!help", HelpCommand, "this help command. \"!help commandName\" for help on that command");
 
             string key = "!" + commandText.ToLower();
-            if (ChatCommands.ContainsKey(key))
+            if (HasCommand(key))
                 return ChatCommands[key];
 
             return null;
         }
 
-        private void HelpCommand(string userDisplayName, string arguments)
+        private void HelpCommand(string userDisplayName, string arguments, string messageID)
         {
             string message;
             if (string.IsNullOrEmpty(arguments))
@@ -264,21 +285,22 @@ namespace TF2SpectatorWin
                 if (string.IsNullOrEmpty(help))
                     help = "?";
 
+                string messagef;
                 if (!("!" + arguments.ToLower()).Contains(com.Command.ToLower()))
-                    message = "(alias for) ";
+                    messagef = "(alias for {0}): {1}";
                 else
-                    message = "";
-                message += com.Command + ": " + help;
+                    messagef = "{0}: {1}";
+                message = string.Format(messagef, com.Command, help);
             }
 
-            SendMessageWithWrapping(message);
+            SendReplyWithWrapping(messageID, message);
         }
 
         private string GetMatchingCommandName(string key)
         {
             string name = ChatCommands[key].Command;
             if (key.ToLower() != name.ToLower())
-                name = ChatCommands[key].Aliases.FirstOrDefault((n) => n.ToLower() == key.ToLower()) ?? name;
+                name = ChatCommands[key].Aliases.FirstOrDefault((n) => n.ToLower() == key.ToLower()) ?? key;
 
             return name;
         }
@@ -291,12 +313,29 @@ namespace TF2SpectatorWin
         /// <param name="message"></param>
         public void SendMessageWithWrapping(string message)
         {
+            SendMessageOrReplyWithWrapping(messageID: null, message);
+        }
+        private void SendMessageOrReplyWithWrapping(string messageID, string message)
+        {
             string[] messages = SplitMessage(message);
             foreach (string msg in messages)
                 if (Client == null || !Client.JoinedChannels.Any())
                     Console.WriteLine(msg);
                 else
-                    Client.SendMessage(TwitchUsername, msg);
+                {
+                    if (string.IsNullOrEmpty(messageID))
+                    {
+                        Client.SendMessage(TwitchUsername, msg);
+                        // only reply to FIRST wrapped message.
+                        messageID = null;
+                    }
+                    else
+                        Client.SendReply(TwitchUsername, messageID, msg);
+                }
+        }
+        public void SendReplyWithWrapping(string messageID, string message)
+        {
+            SendMessageOrReplyWithWrapping(messageID, message);
         }
 
         private string[] SplitMessage(string message)
@@ -354,11 +393,46 @@ namespace TF2SpectatorWin
 
         private void Client_OnMessageReceived(object sender, OnMessageReceivedArgs e)
         {
+            string msg = e.ChatMessage.Message;
+
+            // Math in chat feature
+            string response = GetMathAnswer(msg);
+            if (response != null)
+            {
+                SendReplyWithWrapping(e.ChatMessage.Id, response); 
+                return;
+            }
+
             Console.WriteLine(e.ChatMessage.Channel + " MESSAGE:" +
-                e.ChatMessage.BotUsername + "got from " + e.ChatMessage.Username + "message: " + e.ChatMessage.Message 
-                +" reward:"+ e.ChatMessage.CustomRewardId);
+                e.ChatMessage.BotUsername + "got from " + e.ChatMessage.Username + "message: " + e.ChatMessage.Message
+                + " reward:" + e.ChatMessage.CustomRewardId);
             //if (e.ChatMessage.Message.Contains("badword"))
             //    client.TimeoutUser(e.ChatMessage.Channel, e.ChatMessage.Username, TimeSpan.FromMinutes(30), "Bad word! 30 minute timeout!");
+        }
+
+        // only try messages that have at least two numbers and between them something mathish other than a decimal point.
+        private readonly Regex mathRegex = new Regex("\\d.*[-+/*^\\p{IsMathematicalOperators}\\p{Sm}].*\\d");
+        private readonly ExpressionEvaluator mathDoer = new ExpressionEvaluator();
+        private string GetMathAnswer(string msg)
+        {
+            //consider stripping before/after text one might enter, like "what is () = ?"
+
+            if (!mathRegex.IsMatch(msg))
+                return null;
+
+            try
+            {
+                string mathAnswer = mathDoer.Evaluate(msg).ToString();
+                if (mathAnswer == null)
+                    return null;
+
+                return (msg + " = " + mathAnswer);
+            }
+            catch (Exception ex)
+            {
+                //Console.WriteLine(ex.Message);
+                return null;
+            }
         }
 
         private void Client_OnWhisperReceived(object sender, OnWhisperReceivedArgs e)
@@ -374,5 +448,5 @@ namespace TF2SpectatorWin
             //else
             //    client.SendMessage(e.Channel, $"Welcome {e.Subscriber.DisplayName} to the substers! You just earned 500 points!");
         }
-    }
+   }
 }

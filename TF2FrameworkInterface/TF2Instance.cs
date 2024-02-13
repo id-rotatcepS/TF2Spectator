@@ -15,23 +15,17 @@ namespace TF2FrameworkInterface
     /// </summary>
     public class TF2Instance
 	{
-		public static TF2Instance CreateCommunications()
+		public static TF2Instance CreateCommunications(ushort rconPort, string rconPassword)
 		{
-			return new TF2Instance();
+			return new TF2Instance(rconPort, rconPassword);
 		}
 
-		public static ushort rconPort = 8383;
-		public static string rconPassword = "test";
 		private static System.Net.IPAddress host = System.Net.IPAddress.Loopback;//"127.0.0.1"
 
-		public static string path = @"C:\Program Files (x86)\Steam\steamapps\common\Team Fortress 2";
-
-		private static string hl2 => Path.Combine(path, @"hl2.exe");
-
-		public static void LaunchTF2()
-		{
-			// https://github.com/PazerOP/tf2_bot_detector/blob/master/tf2_bot_detector/SetupFlow/TF2CommandLinePage.cpp#L206
-			/*
+		public static void LaunchTF2(string path, ushort rconPort, string rconPassword)
+        {
+            // https://github.com/PazerOP/tf2_bot_detector/blob/master/tf2_bot_detector/SetupFlow/TF2CommandLinePage.cpp#L206
+            /*
 				" dummy" // Dummy option in case user has mismatched command line args in their steam config
 				" -game tf"
 				" -steam -secure"  // One or both of these is needed when launching the game directly
@@ -51,7 +45,7 @@ namespace TF2FrameworkInterface
 				" -conclearlog"
 				;
 			 */
-			string hl2Argument =
+            string hl2Argument =
 				" dummy" + // Dummy option in case user has mismatched command line args in their steam config
 				" -game tf" +
 				" -steam -secure" +  // One or both of these is needed when launching the game directly
@@ -70,6 +64,7 @@ namespace TF2FrameworkInterface
 				" -condebug" +
 				" -conclearlog";
 
+			string hl2 = Path.Combine(path, @"hl2.exe");
 			//TODO "using" may kill process.
 			using (Process tf2Launch = new Process())
 			{
@@ -90,8 +85,14 @@ namespace TF2FrameworkInterface
 			}
 		}
 
-		private TF2Instance()
+		private ushort rconPort;
+		private string rconPassword;
+
+		private TF2Instance(ushort rconPort, string rconPassword)
         {
+			this.rconPort = rconPort;
+			this.rconPassword = rconPassword;
+
             SetUpRCON();
 
             Task rconTask = TF2RCON.ConnectAsync();
@@ -100,10 +101,8 @@ namespace TF2FrameworkInterface
 
         private void SetUpRCON()
         {
-            //System.Net.IPAddress host = System.Net.IPAddress.Parse("127.0.0.1");
             System.Net.IPEndPoint endpoint = new System.Net.IPEndPoint(host, rconPort);
 
-            //TF2RCON = new RCON(host, port, password);
             TF2RCON = new RCON(endpoint, rconPassword);
         }
 
@@ -141,7 +140,11 @@ namespace TF2FrameworkInterface
 		/// </summary>
 		public bool ShouldProcessResultValues { get; set; } = true;
 
-		private static readonly Regex variableMatch = new Regex(
+        // handle output that could be like this:
+        // "cl_crosshair_file" = "crosshair1" ( def. "" )
+        // client archive
+        // - help text
+        private static readonly Regex variableMatch = new Regex(
 			".*\"(?<variable>[^\"]+)\"\\s*=\\s*\"(?<value>[^\"]+)\".*"
 			);
         /// <summary>
