@@ -52,7 +52,11 @@ namespace TF2SpectatorWin
     /// </summary>
     internal class TF2SpectatorSettings : ASPEN.AspenUserSettings
     {
-        public readonly static string ConfigFileName = "TF2Spectator.config.txt";
+        internal const string DefaultUserName = "_yourNameHere";
+        internal const string DefaultTF2Path = @"C:\Program Files (x86)\Steam\steamapps\common\Team Fortress 2";
+
+        public readonly static string ConfigFilename = "TF2Spectator.config.txt";
+        public readonly static string ConfigFilePath = TF2WindowsViewModel.GetConfigFilePath(ConfigFilename);
 
         public TF2SpectatorSettings(TF2WindowsViewModel vm)
         {
@@ -85,7 +89,7 @@ namespace TF2SpectatorWin
             string[] lines = new string[0];
             try
             {
-                string filename = ConfigFileName;
+                string filename = ConfigFilePath;
                 lines = File.ReadAllLines(filename);
             }
             catch (FileNotFoundException)
@@ -97,10 +101,10 @@ namespace TF2SpectatorWin
                 ASPEN.Aspen.Log.Error(ex.Message);
             }
 
-            options[nameof(TF2WindowsViewModel.TwitchUsername)] = lines.Length > 0 ? lines[0] : "_yourNameHere";
+            options[nameof(TF2WindowsViewModel.TwitchUsername)] = lines.Length > 0 ? lines[0] : DefaultUserName;
             options[nameof(TF2WindowsViewModel.AuthToken)] = lines.Length > 1 ? lines[1] : string.Empty;
 
-            options[nameof(TF2WindowsViewModel.TF2Path)] = lines.Length > 2 ? lines[2] : @"C:\Program Files (x86)\Steam\steamapps\common\Team Fortress 2";
+            options[nameof(TF2WindowsViewModel.TF2Path)] = lines.Length > 2 ? lines[2] : DefaultTF2Path;
             options[nameof(TF2WindowsViewModel.RconPassword)] = lines.Length > 3 ? lines[3] : "test";
             ushort portDefault = 48000;
             try
@@ -118,7 +122,7 @@ namespace TF2SpectatorWin
 
         internal void SaveConfig()
         {
-            string filename = ConfigFileName;
+            string filename = ConfigFilePath;
             StringBuilder content = new StringBuilder();
             content.AppendLine(ASPEN.Aspen.Option.Get<string>(nameof(TF2WindowsViewModel.TwitchUsername)));
             content.AppendLine(ASPEN.Aspen.Option.Get<string>(nameof(TF2WindowsViewModel.AuthToken)));

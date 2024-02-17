@@ -1,15 +1,16 @@
 ﻿using AspenWin;
-using System.Collections.Generic;
-using System.Windows.Input;
 using System;
-using System.IO;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Windows.Input;
 
 namespace TF2SpectatorWin
 {
     internal class CommandsEditorModel
     {
-        public static readonly string ConfigFilename = "TF2SpectatorCommands.tsv";
+        public static readonly string CommandsConfigFilename = "TF2SpectatorCommands.tsv";
+        public static readonly string ConfigFilePath = TF2WindowsViewModel.GetConfigFilePath(CommandsConfigFilename);
 
         // NOTE: ObservableCollection is important for DataGrid edit/delete to work correctly
         public ObservableCollection<Config> CommandData { get; }
@@ -25,9 +26,16 @@ namespace TF2SpectatorWin
                 (o, b) => CommandDataChanged = true;
         }
 
+        Commands win;
         private void OpenCommands()
         {
-            Commands win = new Commands();
+            if (win != null)
+            {
+                win.Activate();
+                return;
+            }
+
+            win = new Commands();
             //win.CommandsDataGrid.AddingNewItem += (o, e) => { };
             //win.CommandsDataGrid.Drop += ;
             // I guess this is the modern version of .CellValueChanged and .CellEndEdit
@@ -73,6 +81,7 @@ namespace TF2SpectatorWin
 
         private void CommandsClosedSaveChanges(object sender, EventArgs e)
         {
+            win = null;
             if (!CommandDataChanged) return;
 
             BackupConfigFile();
@@ -88,11 +97,12 @@ namespace TF2SpectatorWin
 
         private void BackupConfigFile()
         {
-            if (File.Exists(ConfigFilename))
-                File.Copy(ConfigFilename,
-                    string.Format("{0}-{1}",
-                    DateTime.Now.ToString("yyyyMMddTHHmmss"),
-                    ConfigFilename));
+            if (File.Exists(ConfigFilePath))
+                File.Copy(ConfigFilePath,
+                    TF2WindowsViewModel.GetBackupFilePath(
+                        string.Format("{0}-{1}",
+                        DateTime.Now.ToString("yyyyMMddTHHmmss"),
+                        CommandsConfigFilename)));
         }
 
         private void WriteCommandConfig()
@@ -104,7 +114,7 @@ namespace TF2SpectatorWin
             }
             try
             {
-                File.WriteAllLines(ConfigFilename, lines);
+                File.WriteAllLines(ConfigFilePath, lines);
             }
             catch (Exception ex)
             {

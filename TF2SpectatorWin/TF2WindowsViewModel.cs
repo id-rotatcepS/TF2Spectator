@@ -4,6 +4,7 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,6 +16,46 @@ namespace TF2SpectatorWin
 {
     internal class TF2WindowsViewModel : INotifyPropertyChanged
     {
+        /// <summary>
+        /// Get the path for this file, 
+        /// trying for the ApplicationData (roaming, %appdata%) or else LocalApplicationData folder
+        /// in the AssemblyTitle subfolder.
+        /// </summary>
+        /// <param name="file"></param>
+        /// <returns></returns>
+        public static string GetConfigFilePath(string file)
+        {
+            string configPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            if (string.IsNullOrEmpty(configPath))
+                configPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+            return GetFilePath(configPath, file);
+        }
+
+        private static string GetFilePath(string configPath, string file)
+        {
+            string title = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyTitleAttribute>().Title;
+
+            string folder = Path.Combine(configPath, title);
+
+            if (!Directory.Exists(folder))
+                _ = Directory.CreateDirectory(folder);
+
+            return Path.Combine(folder, file);
+        }
+
+        /// <summary>
+        /// Always in the Local (non-roaming) path. otherwise the same as <see cref="GetConfigFilePath(string)"/>
+        /// </summary>
+        /// <param name="file"></param>
+        /// <returns></returns>
+        public static string GetBackupFilePath(string file)
+        {
+            string configPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+            return GetFilePath(configPath, file);
+        }
+
         public event PropertyChangedEventHandler PropertyChanged;
         public void ViewNotification(string propertyName)
         {
@@ -232,7 +273,7 @@ namespace TF2SpectatorWin
         {
             try
             {
-                string filename = CommandsEditorModel.ConfigFilename;
+                string filename = CommandsEditorModel.ConfigFilePath;
                 return File.ReadAllLines(filename);
             }
             catch (FileNotFoundException)
@@ -773,7 +814,16 @@ namespace TF2SpectatorWin
 
         private ICommand _LaunchTwitchCommand;
         public ICommand LaunchTwitchCommand => _LaunchTwitchCommand
-            ?? (_LaunchTwitchCommand = new RelayCommand<object>(LaunchTwitchCommandExecute));
+            ?? (_LaunchTwitchCommand = new RelayCommand<object>(LaunchTwitchCommandExecute, CanTwitchCommandExecute));
+
+        private bool CanTwitchCommandExecute(object arg)
+        {
+            if (IsTwitchConnected) 
+                return true;
+         
+            return !string.IsNullOrWhiteSpace(TwitchUsername)
+                && TwitchUsername != TF2SpectatorSettings.DefaultUserName;
+        }
 
         private void LaunchTwitchCommandExecute(object obj)
         {
