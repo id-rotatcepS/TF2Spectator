@@ -5,18 +5,19 @@ Links your Twitch channel commands to TF2 console commands using the Rcon port.
 * set an Rcon port and password and Launch TF2 (or use pazer's tf2_bot_detector and find its logs folder for configuration to automatically share its randomly-generated port and password)
 * enjoy!
 
-Create/Edit the TF2SpectatorCommands.tsv file to use custom stuff. e.g.:<br/>
-<pre>
-!command&lt;tab&gt;console command with {0} and {1} substitutions from user id and command arg&lt;tab&gt;help text when chat types !help command
-!com2|aliasCom2&lt;tab&gt;console command&lt;tab&gt;help text for both com2 and its alias
+Create/Edit the TF2Spectator Commands  to use custom stuff. e.g.:<br/>
 
-redeem command title|!chatCommand&lt;tab&gt;redeemed/commanded by user "{0}" with message {1}
-redeem with a title that changes sometimes|ababba18-d1ec-44ca-9e30-89303812a601&lt;tab&gt;redeemed command with {0} user and {1} args by ID.
+<table>
+<tr><td>!command</td><td>console command with {0} and {1} substitutions from user id and command arg</td><td>help text when chat types !help command</td></tr>
+<tr><td>!com2|aliasCom2</td><td>console command</td><td>help text for both com2 and its alias</td></tr>
 
-!fancy&lt;tab&gt;console command with {1|off:0|on:1} arg remapping and {cl_class} command substitutions&lt;tab&gt;help text&lt;tab&gt;post-command chat output with {0} username {1} command output and {cl_class} additional variable/command output
+<tr><td>redeem command title|!chatCommand</td><td>redeemed/commanded by user "{0}" with message {1}</td></tr>
+<tr><td>redeem with a title that changes sometimes|ababba18-d1ec-44ca-9e30-89303812a601</td><td>redeemed command with {0} user and {1} args by ID.</td></tr>
 
-!hitSound&lt;tab&gt;tf_dingalingaling_effect&lt;tab&gt;What hit sound is in use?&lt;tab&gt;Current hit sound is {1|0:0 (Default)|1:1 (Electro)|2:2 (Notes)|3:3 (Percussion)|4:4 (Retro)|5:5 (Space)|6:6 (Beepo)|7:7 (Vortex)|8:8 (Squasher)}
-</pre>
+<tr><td>!fancy</td><td>console command with {1|off:0|on:1} arg remapping and {cl_class} command substitutions</td><td>help text</td><td>post-command chat output with {0} username {1} command output and {cl_class} additional variable/command output</td></tr>
+
+<tr><td>!hitSound</td><td>tf_dingalingaling_effect</td><td>What hit sound is in use?</td><td>Current hit sound is {1|0:0 (Default)|1:1 (Electro)|2:2 (Notes)|3:3 (Percussion)|4:4 (Retro)|5:5 (Space)|6:6 (Beepo)|7:7 (Vortex)|8:8 (Squasher)}</td></tr>
+</table>
 Note, chat output happens on rcon response but this responds just before any "wait" command in the sequence, so only includes output up until that command.  
 In other words "echo one;echo two;wait 10;echo three" will populate chat's {1} with "one&lt;newline&gt;two"
 
