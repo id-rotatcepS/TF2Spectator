@@ -1,4 +1,5 @@
 ﻿using AspenWin;
+
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -16,6 +17,8 @@ namespace TF2SpectatorWin
         public ObservableCollection<Config> CommandData { get; }
 
         private TF2WindowsViewModel vm;
+        private ASPEN.AspenLogging Log => ASPEN.Aspen.Log;
+
         public CommandsEditorModel(TF2WindowsViewModel tF2WindowsViewModel)
         {
             this.vm = tF2WindowsViewModel;
@@ -86,7 +89,7 @@ namespace TF2SpectatorWin
 
             BackupConfigFile();
 
-            WriteCommandConfig();
+            WriteCommandConfig(CommandData);
 
             // then reload the file - SetTwitchInstance
             if (vm.IsTwitchConnected)
@@ -105,10 +108,11 @@ namespace TF2SpectatorWin
                         CommandsConfigFilename)));
         }
 
-        private void WriteCommandConfig()
+        //TODO move to commandconfigmodel
+        private void WriteCommandConfig(Collection<Config> commandData)
         {
             List<string> lines = new List<string>();
-            foreach (Config config in CommandData)
+            foreach (Config config in commandData)
             {
                 lines.Add(config.ToString());
             }
@@ -118,7 +122,7 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                vm.Log.Error(ex.Message);
+                Log.Error(ex.Message);
             }
         }
 

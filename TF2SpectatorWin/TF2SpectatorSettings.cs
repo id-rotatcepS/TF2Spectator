@@ -54,6 +54,7 @@ namespace TF2SpectatorWin
     {
         internal const string DefaultUserName = "_yourNameHere";
         internal const string DefaultTF2Path = @"C:\Program Files (x86)\Steam\steamapps\common\Team Fortress 2";
+        internal const string DefaultConnectMessage = "For TF2 Spectator commands, type !help";
 
         public readonly static string ConfigFilename = "TF2Spectator.config.txt";
         public readonly static string ConfigFilePath = TF2WindowsViewModel.GetConfigFilePath(ConfigFilename);
@@ -68,6 +69,7 @@ namespace TF2SpectatorWin
             vm.ViewNotification(nameof(TF2WindowsViewModel.RconPassword));
             vm.ViewNotification(nameof(TF2WindowsViewModel.RconPort));
             vm.ViewNotification(nameof(TF2WindowsViewModel.BotDetectorLog));
+            vm.ViewNotification(nameof(TF2WindowsViewModel.TwitchConnectMessage));
         }
 
         Dictionary<object, object> options = new Dictionary<object, object>();
@@ -118,6 +120,8 @@ namespace TF2SpectatorWin
             }
 
             options[nameof(TF2WindowsViewModel.BotDetectorLog)] = lines.Length > 5 ? lines[5] : string.Empty;
+
+            options[nameof(TF2WindowsViewModel.TwitchConnectMessage)] = lines.Length > 6 ? lines[6] : DefaultConnectMessage;
         }
 
         internal void SaveConfig()
@@ -132,6 +136,7 @@ namespace TF2SpectatorWin
             content.AppendLine(ASPEN.Aspen.Option.Get<string>(nameof(TF2WindowsViewModel.RconPassword)));
             content.AppendLine(ASPEN.Aspen.Option.Get<ushort>(nameof(TF2WindowsViewModel.RconPort)).ToString());
             content.AppendLine(ASPEN.Aspen.Option.Get<string>(nameof(TF2WindowsViewModel.BotDetectorLog)));
+            content.AppendLine(ASPEN.Aspen.Option.Get<string>(nameof(TF2WindowsViewModel.TwitchConnectMessage)));
 
             try
             {

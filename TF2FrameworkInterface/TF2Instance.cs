@@ -109,6 +109,13 @@ namespace TF2FrameworkInterface
         public RCON TF2RCON { get; private set; }
 
 		/// <summary>
+		/// add to the RCON disconnect event
+		/// </summary>
+		/// <param name="a"></param>
+		public void SetOnDisconnected(Action a)
+			=> TF2RCON.OnDisconnected += a;
+
+		/// <summary>
 		/// runs the command and an action to process its result.  
 		/// Returns a task governing the execution of the result processing.
 		/// Just call .Wait() if you want to be synchronous with the result execution.

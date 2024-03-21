@@ -93,6 +93,13 @@
                              ToolTip="Path to the steamapps\common\Team Fortress 2 - this button launches hl2.exe from there with special settings"/>
 
                     </StackPanel>
+                    <Label Content="... or ..."/>
+                    <Label Content="If you use a custom tf2 configuration, you can just add the following two entries to your config:"/>
+                    <Label Padding="20,0" FontWeight="Bold"
+                           Content="{Binding RconPassword,FallbackValue=AbovePassword}" ContentStringFormat="+rcon_password {0}"/>
+                    <Label Padding="20,0" FontWeight="Bold"
+                           Content="{Binding RconPort,FallbackValue=AbovePort}" ContentStringFormat="+hostport {0}"/>
+                    <Label Content="But remember to update it if you change the values above."/>
                 </StackPanel>
             </Expander>
 
@@ -113,20 +120,29 @@
 
                     </StackPanel>
                 </Expander.Header>
-                <StackPanel Orientation="Horizontal">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
 
-                    <Label Content="Twitch User/Channel:"/>
-                    <TextBox x:Name="twitchUser" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" Width="120"
-                     Text="{Binding TwitchUsername}"/>
-                    <Label Content="Latest Auth Token:"/>
-                    <TextBox x:Name="twitchAuth" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" Width="220"
-                     Text="{Binding AuthToken}"
-                     ToolTip="Empty = Twitch Authorization request will be launched in your browser. Not empty = will attempt to just use that token."/>
+                        <Label Content="Twitch User/Channel:"/>
+                        <TextBox x:Name="twitchUser" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" Width="120"
+                         Text="{Binding TwitchUsername}"/>
+                        <Label Content="Latest Auth Token:"/>
+                        <TextBox x:Name="twitchAuth" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" Width="220"
+                         Text="{Binding AuthToken}"
+                         ToolTip="Empty = Twitch Authorization request will be launched in your browser. Not empty = will attempt to just use that token."/>
+
+                    </StackPanel>
+
+                    <Label Content="Twitch Connect Chat Message:"/>
+                    <TextBox x:Name="twitchConnectMessage" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" Width="350"
+                         Text="{Binding TwitchConnectMessage}"/>
 
                 </StackPanel>
             </Expander>
 
-            <Expander Header="TF2 Command Tests" IsExpanded="False">
+            <Button Content="Edit TF2 Spectator Commands..." Command="{Binding OpenCommandsCommand}" HorizontalAlignment="Center"/>
+
+            <Expander Header="Testing for TF2 commands" IsExpanded="False">
                 <StackPanel>
                     <ToolBar Height="33" Margin="0,0,0,0"  HorizontalAlignment="Stretch" VerticalAlignment="Top">
 
