@@ -156,7 +156,10 @@ namespace TF2SpectatorWin
         {
             try
             {
-                TwitchInstance twitch = new TwitchInstance(twitchUsername);
+                TwitchInstance twitch = new TwitchInstance(twitchUsername)
+                {
+                    ConnectMessage = TwitchConnectMessage
+                };
                 // instantiating TwitchInstance initializes AuthToken if it wasn't already set. Record it in view/options.
                 AuthToken = TwitchInstance.AuthToken;
 
@@ -706,8 +709,18 @@ namespace TF2SpectatorWin
             Log.Error("Error watching TBD Logs: " + e.GetException()?.Message);
             WatchTBDLogFolder();
         }
-        
+
         #endregion bot detector log handler
+
+        public string TwitchConnectMessage
+        {
+            get => Option.Get<string>(nameof(TwitchConnectMessage));
+            set
+            {
+                Option.Set(nameof(TwitchConnectMessage), value?.Trim());
+                ViewNotification(nameof(TwitchConnectMessage));
+            }
+        }
 
         public string TwitchUsername
         {

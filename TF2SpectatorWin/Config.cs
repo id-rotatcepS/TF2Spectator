@@ -1,5 +1,8 @@
 ﻿namespace TF2SpectatorWin
 {
+    /// <summary>
+    /// a single command configuration entry
+    /// </summary>
     internal class Config
     {
         public const char CommandSeparator = '\t';
