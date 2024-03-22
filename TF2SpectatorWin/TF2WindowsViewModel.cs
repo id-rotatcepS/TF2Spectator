@@ -145,7 +145,7 @@ namespace TF2SpectatorWin
             }
             catch (Exception e)
             {
-                Log.Error("TwitchInstance: " + e.Message);
+                Log.ErrorException(e, "TF2 failed");
                 return null;
             }
         }
@@ -398,7 +398,7 @@ namespace TF2SpectatorWin
             }
             catch (Exception e)
             {
-                Log.Error("Twitch Failed: " + e.Message);
+                Log.ErrorException(e, "Twitch Failed");
             }
         }
 

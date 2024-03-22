@@ -49,22 +49,24 @@ namespace TF2FrameworkInterface
 				" dummy" + // Dummy option in case user has mismatched command line args in their steam config
 				" -game tf" +
 				" -steam -secure" +  // One or both of these is needed when launching the game directly
-				" -usercon" +
+				" -usercon" + // critical for rcon
 				" -high" + // TODO: make this an option
 				" +developer 1 +alias developer" +
 				" +contimes 0 +alias contimes" +   // the text in the top left when developer >= 1
-				" +ip 0.0.0.0 +alias ip" +
+				" +ip 0.0.0.0 +alias ip" + // critical for rcon
 				" +sv_rcon_whitelist_address " + host.ToString() + " +alias sv_rcon_whitelist_address" +
 				" +sv_quota_stringcmdspersecond 1000000 +alias sv_quota_stringcmdspersecond" + // workaround for mastercomfig causing crashes on local servers
 				" +rcon_password " + rconPassword + " +alias rcon_password" +
 				" +hostport " + rconPort + " +alias hostport" +
 				" +alias cl_reload_localization_files" + // This command reloads files in backwards order, so any customizations get overwritten by stuff from the base game
-				" +net_start" +
+				" +net_start" + // critical for rcon
 				" +con_timestamp 1 +alias con_timestamp" +
 				" -condebug" +
 				" -conclearlog";
 
-			string hl2 = Path.Combine(path, @"hl2.exe");
+            //TODO: running this should just add args to user's current tf2 config and don't need hl2 locaton: steam://rungameid/440/+my +extra +args 
+
+            string hl2 = Path.Combine(path, @"hl2.exe");
 			//TODO "using" may kill process.
 			using (Process tf2Launch = new Process())
 			{

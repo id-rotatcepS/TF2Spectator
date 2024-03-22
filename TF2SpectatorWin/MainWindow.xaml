@@ -96,9 +96,11 @@
                     <Label Content="... or ..."/>
                     <Label Content="If you use a custom tf2 configuration, you can just add the following two entries to your config:"/>
                     <Label Padding="20,0" FontWeight="Bold"
+                           Content="-usercon +ip 0.0.0.0"/>
+                    <Label Padding="20,0" FontWeight="Bold"
                            Content="{Binding RconPassword,FallbackValue=AbovePassword}" ContentStringFormat="+rcon_password {0}"/>
                     <Label Padding="20,0" FontWeight="Bold"
-                           Content="{Binding RconPort,FallbackValue=AbovePort}" ContentStringFormat="+hostport {0}"/>
+                           Content="{Binding RconPort,FallbackValue=AbovePort}" ContentStringFormat="+hostport {0} +net_start"/>
                     <Label Content="But remember to update it if you change the values above."/>
                 </StackPanel>
             </Expander>
