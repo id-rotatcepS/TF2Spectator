@@ -70,9 +70,9 @@ namespace TF2SpectatorWin
             // initialize primary source from loaded option
             TwitchInstance.AuthToken = Option.Get<string>(nameof(AuthToken));
 
-            // hide tf2 unless they've configured the launch button or haven't configured anything.
-            TF2Expanded = !string.IsNullOrEmpty(TF2Path)
-                || string.IsNullOrEmpty(BotDetectorLog);
+            // hide tf2 unless they haven't configured anything.
+            TF2Expanded = string.IsNullOrWhiteSpace(TF2Path)
+                && string.IsNullOrWhiteSpace(BotDetectorLog);
 
             //TODO consider making this part of TwitchInstance except for parts that CommandsEditorModel needs
             commandConfigModel = new CommandConfigModel(this);
@@ -141,11 +141,17 @@ namespace TF2SpectatorWin
         {
             try
             {
+                // prepare the cfg script the user must exec from the tf2 console that matches this communications instance.
+                if (string.IsNullOrWhiteSpace(TF2Path))
+                    Log.Warning("TF2 Path is not set - Rcon configuration script not updated");
+                else
+                    TF2Instance.WriteRconConfigFile(TF2Path, RconPort, RconPassword);
+
                 return TF2Instance.CreateCommunications(RconPort, RconPassword);
             }
             catch (Exception e)
             {
-                Log.Error("TwitchInstance: " + e.Message);
+                Log.ErrorException(e, "TF2 failed");
                 return null;
             }
         }
@@ -156,7 +162,7 @@ namespace TF2SpectatorWin
         private void TF2InstanceDisconnected()
         {
             _tf2 = null;
-            Log.Warning("TwitchInstance: reconnecting");
+            Log.Warning("TF2: reconnecting");
         }
 
         public bool TF2Expanded { get; set; }
@@ -250,6 +256,8 @@ namespace TF2SpectatorWin
                 ViewNotification(nameof(TF2Path));
             }
         }
+
+        public string RconConfigFileBase => TF2Instance.RconConfigFileBaseName;
 
         /// <summary>
         /// path to the folder containing the tf2_bot_detector general log files that include the launch parameters that contain the randomized password and port.
@@ -373,7 +381,7 @@ namespace TF2SpectatorWin
 
         private ICommand _LaunchTwitchCommand;
         public ICommand LaunchTwitchCommand => _LaunchTwitchCommand
-            ?? (_LaunchTwitchCommand = new RelayCommand<object>(LaunchTwitchCommandExecute, CanTwitchCommandExecute));
+            ?? (_LaunchTwitchCommand = new RelayCommand<object>(ToggleLaunchTwitchCommandExecute, CanTwitchCommandExecute));
 
         private bool CanTwitchCommandExecute(object arg)
         {
@@ -384,22 +392,30 @@ namespace TF2SpectatorWin
                 && TwitchUsername != TF2SpectatorSettings.DefaultUserName;
         }
 
-        private void LaunchTwitchCommandExecute(object obj)
+        private void ToggleLaunchTwitchCommandExecute(object obj)
         {
             try
             {
                 if (IsTwitchConnected)
-                {
-                    DisconnectTwitch();
-                    Log.Info("Disconnected Twitch");
-                }
+                    DisconnectTwitchExecute();
                 else
-                    Log.Info("Connected Twitch: " + Twitch?.TwitchUsername);
+                    ConnectTwitchExecute();
             }
             catch (Exception e)
             {
-                Log.Error("Twitch Failed: " + e.Message);
+                Log.ErrorException(e, "Twitch Failed");
             }
+        }
+
+        private void DisconnectTwitchExecute()
+        {
+            DisconnectTwitch();
+            Log.Info("Disconnected Twitch");
+        }
+
+        private void ConnectTwitchExecute()
+        {
+            Log.Info("Connected Twitch: " + Twitch?.TwitchUsername);
         }
 
         internal void ClosingHandler(object sender, CancelEventArgs e)

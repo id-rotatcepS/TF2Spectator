@@ -39,7 +39,7 @@ namespace TF2SpectatorWin
                 // don't care, just make a new one.
             }
 
-            if (string.IsNullOrEmpty(vm.BotDetectorLog))
+            if (string.IsNullOrWhiteSpace(vm.BotDetectorLog))
                 return;
 
             // First, process the most recent file, then watch for new ones.
@@ -56,7 +56,7 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                Log.Error("Could not parse bot detector log yet: " + ex.Message);
+                Log.ErrorException(ex, "Could not parse bot detector log yet");
                 // processing most recent failed (maybe there wasn't one)... no problem, Watcher will process the next one that pops up.
             }
         }
@@ -153,7 +153,7 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                Log.Error("Error trying to watch bot detector logs (will not automatically configure): " + ex.Message);
+                Log.ErrorException(ex, "Error trying to watch bot detector logs (will not automatically configure)");
             }
         }
 
@@ -180,7 +180,7 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                Log.Error("Error parsing bot detector log: " + ex.Message);
+                Log.ErrorException(ex, "Error parsing bot detector log");
                 // retry
                 // TODO prevent infinite loop?
                 _ = App.Current.Dispatcher.BeginInvoke(

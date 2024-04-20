@@ -122,7 +122,7 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                Log.Error(ex.Message);
+                Log.ErrorException(ex, "Error saving commands");
             }
         }
 

@@ -66,6 +66,7 @@
 
                     </StackPanel>
                     <Separator />
+                    <Label Content="(as of April 18, 2024 tf2 bot detector does not work with 64bit TF2 unless it gets an update)"/>
                     <StackPanel Orientation="Horizontal">
                         <Label Content="tf2 bot detector logs:" ToolTip="Auto-fills Rcon if you run tf2_bot_detector"/>
                         <TextBox x:Name="tbdlogs" Height="23" VerticalAlignment="Top" HorizontalAlignment="Stretch"  MinWidth="400"
@@ -87,19 +88,32 @@
                         <Button x:Name="start" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" MinWidth="75"
                             Content="(Launch TF2)" Command="{Binding LaunchCommand}"
                             ToolTip="Starts TF2 using these settings - DON'T Click if using tf2_bot_detector, instead set the TF2BD logs folder to share its settings"/>
-                        <Label Content="▶ from"/>
+                        <Label Content="▶ from TF2 path:"/>
                         <TextBox x:Name="tf2" HorizontalAlignment="Stretch" Height="23"  TextWrapping="Wrap" VerticalAlignment="Top" MinWidth="400"
                              Text="{Binding TF2Path}"
-                             ToolTip="Path to the steamapps\common\Team Fortress 2 - this button launches hl2.exe from there with special settings"/>
+                             ToolTip="Path to the steamapps\common\Team Fortress 2 - this button launches tf_win64.exe from there with special settings"/>
 
                     </StackPanel>
                     <Label Content="... or ..."/>
-                    <Label Content="If you use a custom tf2 configuration, you can just add the following two entries to your config:"/>
+                    <Label Content="Add the following entry to your TF2 Launch Options:"/>
+                    <Label Padding="20,0" FontWeight="Bold"
+                           Content="-usercon"/>
+                    <Label Content="... THEN ..."/>
+                    <Label Content="Setting Rcon values creates a config file (using the above TF2 path) that you must invoke from the 64bit TF2 Console:"/>
+                    <Label Padding="20,0" FontWeight="Bold"
+                           Content="{Binding RconConfigFileBase,FallbackValue=TF2SpectatorRCON}" ContentStringFormat="exec {0}"/>
+                    <Label Content="Or just add that exec command to your autoexec.cfg to automatically run it on startup."/>
+
+                    <!--
+                    <Label Content="If you use a custom tf2 launch options, you can just add the following entries to your Launch Options:"/>
+                    <Label Padding="20,0" FontWeight="Bold"
+                           Content="-usercon +ip 0.0.0.0"/>
                     <Label Padding="20,0" FontWeight="Bold"
                            Content="{Binding RconPassword,FallbackValue=AbovePassword}" ContentStringFormat="+rcon_password {0}"/>
                     <Label Padding="20,0" FontWeight="Bold"
-                           Content="{Binding RconPort,FallbackValue=AbovePort}" ContentStringFormat="+hostport {0}"/>
+                           Content="{Binding RconPort,FallbackValue=AbovePort}" ContentStringFormat="+hostport {0} +net_start"/>
                     <Label Content="But remember to update it if you change the values above."/>
+                    -->
                 </StackPanel>
             </Expander>
 

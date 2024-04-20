@@ -119,7 +119,7 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                Log.Error(ex.Message);
+                Log.ErrorException(ex, "Error Reading Commands");
             }
             return commandConfig.Split('\n');
         }

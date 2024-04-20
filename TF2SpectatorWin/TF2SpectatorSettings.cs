@@ -28,14 +28,31 @@ namespace TF2SpectatorWin
             AddLog(msg);
         }
 
-        public void ErrorException(Exception exc, string msg) => throw new NotImplementedException();
+        public void ErrorException(Exception exc, string msg)
+        {
+            AddLog(msg + "\n - " + GetMessages(exc));
+        }
+
+        private string GetMessages(Exception e)
+        {
+            string messages = e.Message;
+            while (e.InnerException != null)
+            {
+                e = e.InnerException;
+                messages += ";" + e.Message;
+            }
+            return messages;
+        }
 
         public void Info(string msg)
         {
             AddLog(msg);
         }
 
-        public void InfoException(Exception exc, string msg) => throw new NotImplementedException();
+        public void InfoException(Exception exc, string msg)
+        {
+            AddLog(msg + "\n" + GetMessages(exc));
+        }
 
         public void Trace(string msg) => throw new NotImplementedException();
 
@@ -44,7 +61,10 @@ namespace TF2SpectatorWin
             AddLog(msg);
         }
 
-        public void WarningException(Exception exc, string msg) => throw new NotImplementedException();
+        public void WarningException(Exception exc, string msg)
+        {
+            AddLog(msg + "\n" + GetMessages(exc));
+        }
     }
 
     /// <summary>
@@ -100,7 +120,7 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                ASPEN.Aspen.Log.Error(ex.Message);
+                ASPEN.Aspen.Log.ErrorException(ex, "Load Config");
             }
 
             options[nameof(TF2WindowsViewModel.TwitchUsername)] = lines.Length > 0 ? lines[0] : DefaultUserName;
@@ -116,7 +136,7 @@ namespace TF2SpectatorWin
             catch (Exception ex)
             {
                 options[nameof(TF2WindowsViewModel.RconPort)] = portDefault;
-                ASPEN.Aspen.Log.Error(ex.Message);
+                ASPEN.Aspen.Log.ErrorException(ex, "parsing Rcon Port");
             }
 
             options[nameof(TF2WindowsViewModel.BotDetectorLog)] = lines.Length > 5 ? lines[5] : string.Empty;
@@ -144,7 +164,7 @@ namespace TF2SpectatorWin
             }
             catch (Exception ex)
             {
-                ASPEN.Aspen.Log.Error(ex.Message);
+                ASPEN.Aspen.Log.ErrorException(ex, "Saving Config");
             }
         }
 
