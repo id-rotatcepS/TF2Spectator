@@ -39,7 +39,7 @@ namespace TF2SpectatorWin
                 // don't care, just make a new one.
             }
 
-            if (string.IsNullOrEmpty(vm.BotDetectorLog))
+            if (string.IsNullOrWhiteSpace(vm.BotDetectorLog))
                 return;
 
             // First, process the most recent file, then watch for new ones.
