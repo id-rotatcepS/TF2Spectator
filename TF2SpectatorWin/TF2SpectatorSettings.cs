@@ -92,6 +92,15 @@ namespace TF2SpectatorWin
             vm.ViewNotification(nameof(TF2WindowsViewModel.TwitchConnectMessage));
         }
 
+        /// <summary>
+        /// this is a commonly needed value, but this may not be the best way to provide it.
+        /// </summary>
+        public string TF2Path
+        {
+            get => ASPEN.Aspen.Option.Get<string>(nameof(TF2WindowsViewModel.TF2Path));
+            set => options[nameof(TF2WindowsViewModel.TF2Path)] = value as string;
+        }
+
         Dictionary<object, object> options = new Dictionary<object, object>();
         public T Get<T>(object key)
         {

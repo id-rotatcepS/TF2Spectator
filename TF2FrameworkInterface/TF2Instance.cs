@@ -180,7 +180,7 @@ namespace TF2FrameworkInterface
             SetUpRCON();
 
             Task rconTask = TF2RCON.ConnectAsync();
-			rconTask.Wait();
+            bool completed = rconTask.Wait(TF2Instance.COMMAND_TIMEOUT);
         }
 
         private void SetUpRCON()
@@ -200,14 +200,19 @@ namespace TF2FrameworkInterface
 			=> TF2RCON.OnDisconnected += a;
 
 		/// <summary>
-		/// runs the command and an action to process its result.  
-		/// Returns a task governing the execution of the result processing.
-		/// Just call .Wait() if you want to be synchronous with the result execution.
+		/// Recommended timeout for command Task.Wait.
 		/// </summary>
-		/// <param name="command"></param>
-		/// <param name="result"></param>
-		/// <returns></returns>
-		public Task SendCommand(TF2Command command, Action<string> result)
+        public static readonly int COMMAND_TIMEOUT = 1000 * 2;
+        
+		/// <summary>
+        /// runs the command and an action to process its result.  
+        /// Returns a task governing the execution of the result processing.
+        /// Just call .Wait() if you want to be synchronous with the result execution.
+        /// </summary>
+        /// <param name="command"></param>
+        /// <param name="result"></param>
+        /// <returns></returns>
+        public Task SendCommand(TF2Command command, Action<string> result)
 		{
 			string consoleCommand = command.ConsoleString;
 			//SendHijackCommand(consoleCommand);
@@ -238,6 +243,7 @@ namespace TF2FrameworkInterface
         private static readonly Regex variableMatch = new Regex(
 			".*\"(?<variable>[^\"]+)\"\\s*=\\s*\"(?<value>[^\"]+)\".*"
 			);
+
         /// <summary>
         /// convert some odd results into something more useful
         /// </summary>

@@ -155,6 +155,7 @@
             </Expander>
 
             <Button Content="Edit TF2 Spectator Commands..." Command="{Binding OpenCommandsCommand}" HorizontalAlignment="Center"/>
+            <Button Content="Test Lobby" Command="{Binding LobbyParseCommand}" HorizontalAlignment="Left"/>
 
             <Expander Header="Testing for TF2 commands" IsExpanded="False">
                 <StackPanel>

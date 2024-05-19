@@ -80,6 +80,8 @@ namespace TF2SpectatorWin
             CommandsEditor = new CommandsEditorModel(this);
 
             botDetectorLogModel = new TF2BotDetectorLogModel(this);
+
+            LobbyTrackerModel = new TF2LobbyTrackerModel(this);
         }
 
         private ASPEN.AspenLogging Log => ASPEN.Aspen.Log;
@@ -109,12 +111,15 @@ namespace TF2SpectatorWin
         private TF2BotDetectorLogModel botDetectorLogModel;
         public ICommand ParseTBDCommand => botDetectorLogModel.ParseCommand;
 
+        private TF2LobbyTrackerModel LobbyTrackerModel;
+        public ICommand LobbyParseCommand => LobbyTrackerModel.LobbyParseCommand;
+
 
         private static TF2Instance _tf2 = null;
 
         public bool IsTF2Connected => _tf2 != null;
 
-        private TF2Instance TF2 => _tf2
+        internal TF2Instance TF2 => _tf2
             ?? SetTF2Instance();
 
         private TF2Instance SetTF2Instance()
@@ -357,7 +362,7 @@ namespace TF2SpectatorWin
                 Log.Info(cmd + ": " + s);
             });
 
-            afterTask.Wait();
+            bool completed = afterTask.Wait(TF2Instance.COMMAND_TIMEOUT);
         }
         internal void SendCommandAndNoResponse(string consoleCommand)
         {
