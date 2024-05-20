@@ -28,6 +28,8 @@ namespace TF2FrameworkInterface
             this.TF2Path = TF2Path;
             Muted = new TF2VoiceBanFile(TF2Path);
             Muted.Load();
+            Banned = new TF2BDFiles();
+            Banned.AddURLFile("https://trusted.roto.lol/v1/steamids");
             Lobby = new TFDebugLobbyCommandOutput(TF2);
             ServerDetail = new StatusCommandLogOutput(TF2, TF2Path);
             RefreshBotList();
@@ -67,9 +69,12 @@ namespace TF2FrameworkInterface
 
         private bool IsBot(TF2DebugLobby player)
         {
-            bool isMuted = Muted.UIDs.Contains(player.SteamUniqueID);
-            //return true;//TODO testing
-            return isMuted;
+            //bool isMuted = Muted.UIDs.Contains(player.SteamUniqueID);
+            ////return true;//TODO testing
+            //return isMuted;
+
+            bool isCheater = Banned.GetCheaterIDs().Contains(player.SteamUniqueID);
+            return isCheater;
         }
 
         public TF2Instance TF2 { get; }
@@ -354,13 +359,6 @@ namespace TF2FrameworkInterface
             //if(!cancelled)
             Next();
         }
-    }
-
-    /// <summary>
-    /// Embody the tf2_bot_detector JSON files
-    /// </summary>
-    public class TF2BDFiles
-    {
     }
 
     internal class KickInteraction
