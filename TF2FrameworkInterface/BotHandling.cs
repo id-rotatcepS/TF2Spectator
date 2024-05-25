@@ -109,9 +109,9 @@ namespace TF2FrameworkInterface
 
         private bool IsBot(string steamUniqueID)
         {
-            //bool isMuted = Muted.UIDs.Contains(steamUniqueID);
-            ////return true;//TODO testing
-            //return isMuted;
+            bool isMuted = Muted.UIDs.Contains(steamUniqueID);
+            if (isMuted) 
+                return true;
 
             bool isCheater = IsBannedID(steamUniqueID);
             return isCheater;
@@ -170,15 +170,18 @@ namespace TF2FrameworkInterface
                     b => !currentConnections.Any(l => l.SteamUniqueID == b.SteamID))
                     .ToList();
                 foreach (LobbyPlayer p in gone)
-                    _Players.Remove(p);
+                    RemovePlayer(p);
+                NotRemovedPlayers(_Players.Except(gone));
 
                 List<LobbyPlayer> stillConnectedBots = new List<LobbyPlayer>(_Players);
                 _ = newConnections.RemoveAll(l => stillConnectedBots.Any(b => b.SteamID == l.SteamUniqueID));
 
                 // and update teams
-                foreach(LobbyPlayer p in stillConnectedBots)
+                foreach (LobbyPlayer p in stillConnectedBots)
                 {
-                    p.Update( currentConnections.First(l => l.SteamUniqueID == p.SteamID));
+                    TF2DebugLobby lobbyInfo = currentConnections.FirstOrDefault(l => l.SteamUniqueID == p.SteamID);
+                    if (lobbyInfo != null)
+                        p.Update(lobbyInfo);
                     p.IsBanned = IsBannedID(p.SteamID);
                     p.IsUserBanned = IsUserBannedID(p.SteamID);
                     p.IsMe = MySteamUniqueID == p.SteamID;
@@ -200,6 +203,22 @@ namespace TF2FrameworkInterface
                 foreach (LobbyPlayer p in newThings)
                     _Players.Add(p);// TODO from this thread modification not allowed
 
+        }
+
+        private void RemovePlayer(LobbyPlayer p)
+        {
+            p.RemoveCounter++;
+            // 2 or 3 is probably enough to keep the list from jumping around,
+            // but I want to be able to kick people after disconnecting or after they got kicked when I get a chance to click them.
+            if (p.RemoveCounter > 15)
+                _ = _Players.Remove(p);
+        }
+
+        private void NotRemovedPlayers(IEnumerable<LobbyPlayer> present)
+        {
+            // if they're still present, reset the remove counter
+            foreach (LobbyPlayer p in present)
+                p.RemoveCounter = 0;
         }
 
         //private bool cancelled = false;

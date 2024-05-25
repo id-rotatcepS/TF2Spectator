@@ -26,7 +26,7 @@ namespace TF2FrameworkInterface
             set
             {
                 isMuted = value;
-                NotifyProperty(nameof(TextIcon));
+                ViewNotification(nameof(TextIcon));
             }
         }
 
@@ -37,7 +37,7 @@ namespace TF2FrameworkInterface
             set
             {
                 isBanned = value;
-                NotifyProperty(nameof(TextIcon));
+                ViewNotification(nameof(TextIcon));
             }
         }
         private bool isUserBanned;
@@ -47,15 +47,17 @@ namespace TF2FrameworkInterface
             set
             {
                 isUserBanned = value;
-                NotifyProperty(nameof(TextIcon));
+                ViewNotification(nameof(TextIcon));
             }
         }
         private bool isFriend;
-        public bool IsFriend { 
+        public bool IsFriend
+        {
             get => isFriend;
-            set  {
-                isFriend = value; 
-                NotifyProperty(nameof(TextIcon));
+            set
+            {
+                isFriend = value;
+                ViewNotification(nameof(TextIcon));
             }
         }
         private bool isMe;
@@ -65,7 +67,7 @@ namespace TF2FrameworkInterface
             set
             {
                 isMe = value;
-                NotifyProperty(nameof(TextIcon));
+                ViewNotification(nameof(TextIcon));
             }
         }
 
@@ -77,10 +79,12 @@ namespace TF2FrameworkInterface
             : IsFriend ? "💚"
             : " ");
 
-        public string TextTime => StatusConnectedSeconds == 0
+        public string TextTime
+            => IsMissing ? "--"
+            : StatusConnectedSeconds == 0
             ? ""
-            : new System.TimeSpan(0, 0, StatusConnectedSeconds).TotalMinutes.ToString("N2");
-                //ToString(@"hh\:mm\:ss");
+            : new System.TimeSpan(0, 0, StatusConnectedSeconds).TotalMinutes.ToString("N0");
+        //ToString(@"hh\:mm\:ss");
 
         private TF2Status _lastGoodStatus;
 
@@ -108,24 +112,20 @@ namespace TF2FrameworkInterface
 
         private void NotifyStatusChanged()
         {
-            NotifyProperty(nameof(HaveStatus));
-            NotifyProperty(nameof(HaveKickInfo));
-            NotifyProperty(nameof(StatusName));
-            NotifyProperty(nameof(StatusConnectedSeconds));
-            NotifyProperty(nameof(StatusPing));
-            NotifyProperty(nameof(StatusState));
-        }
-
-        private void NotifyProperty(string name)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+            ViewNotification(nameof(HaveStatus));
+            ViewNotification(nameof(HaveKickInfo));
+            ViewNotification(nameof(StatusName));
+            ViewNotification(nameof(StatusConnectedSeconds));
+            ViewNotification(nameof(TextTime));
+            ViewNotification(nameof(StatusPing));
+            ViewNotification(nameof(StatusState));
         }
 
         internal void Update(TF2DebugLobby updatedLobby)
         {
             lobbyInfo.Team = updatedLobby.Team;
-            NotifyProperty(nameof(IsRED));
-            NotifyProperty(nameof(IsBLU));
+            ViewNotification(nameof(IsRED));
+            ViewNotification(nameof(IsBLU));
             //lobbyInfo.MemberNumber
             //lobbyInfo.PlayerType
         }
@@ -142,7 +142,29 @@ namespace TF2FrameworkInterface
         /// <summary>
         /// invalid, challenging, connecting, spawning, active
         /// </summary>
-        public string StatusState => StatusInfo?.UserState
+        public string StatusState 
+            => IsMissing ? "--"
+            : StatusInfo?.UserState
             ?? "";
+
+        public bool IsMissing => RemoveCounter > 0;
+
+        private int removeCounter;
+        /// <summary>
+        /// track how many times we tried to remove this player 
+        /// - they can accidentally show as removed for a while, 
+        /// also useful so they stick around a little while for marking after another player kicks them.
+        /// </summary>
+        public int RemoveCounter
+        {
+            get => removeCounter;
+            internal set
+            {
+                removeCounter = value;
+                ViewNotification(nameof(TextTime));
+                ViewNotification(nameof(StatusState));
+                ViewNotification(nameof(IsMissing));
+            }
+        }
     }
 }
