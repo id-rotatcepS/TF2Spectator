@@ -155,8 +155,57 @@
             </Expander>
 
             <Button Content="Edit TF2 Spectator Commands..." Command="{Binding OpenCommandsCommand}" HorizontalAlignment="Center"/>
-            <Button Content="Test Lobby" Command="{Binding LobbyParseCommand}" HorizontalAlignment="Left"/>
 
+            <Expander IsExpanded="False" DataContext="{Binding LobbyTrackerModel}">
+                <Expander.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <Label Content="Bot Handling"/>
+                        <ToggleButton IsChecked="{Binding IsParsing, Mode=OneWay}" Content="Monitor Game Lobby" Command="{Binding LobbyParseCommand}" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </Expander.Header>
+                <StackPanel Orientation="Vertical">
+                    <StackPanel Orientation="Horizontal">
+                        <DataGrid ItemsSource="{Binding LobbyRedCollection}" 
+                              Width="340" Height="270" Background="HotPink" BorderBrush="DarkRed" BorderThickness="3"
+                              AutoGenerateColumns="False" IsReadOnly="True"
+                              CurrentItem="{Binding LobbyRedCurrent}"
+                              SelectedItem="{Binding LobbyRedSelected}" SelectionMode="Single">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Binding="{Binding TextIcon}" Header="Bot" Width="35"/>
+                                <DataGridTextColumn Binding="{Binding StatusName}" Header="Name" MaxWidth="150"/>
+                                <DataGridTextColumn Binding="{Binding TextTime}" Header="Time" Width="50"
+                                                    SortMemberPath="{Binding StatusConnectedSeconds}"
+                                                    SortDirection="Ascending"/>
+                                <DataGridTextColumn Binding="{Binding StatusPing}" Header="Ping" Width="35"/>
+                                <DataGridTextColumn Binding="{Binding StatusState}" Header="State" Width="60"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                            <Button Content="Mark Bot" Command="{Binding MarkBotCommand}" HorizontalAlignment="Stretch" Height="80"/>
+                            <Separator/>
+                            <Button Content="Unmark" Command="{Binding MarkNotBotCommand}" HorizontalAlignment="Stretch" Height="40"/>
+                        </StackPanel>
+                        <DataGrid ItemsSource="{Binding LobbyBluCollection}"
+                              Width="340" Height="270" Background="CornflowerBlue" BorderBrush="DarkBlue" BorderThickness="3"
+                              AutoGenerateColumns="False" IsReadOnly="True"
+                              CurrentItem="{Binding LobbyBluCurrent}"
+                              SelectedItem="{Binding LobbyBluSelected}" SelectionMode="Single">
+
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Binding="{Binding TextIcon}" Header="Bot" Width="35"/>
+                                <DataGridTextColumn Binding="{Binding StatusName}" Header="Name" MaxWidth="150"/>
+                                <DataGridTextColumn Binding="{Binding TextTime}" Header="Time" Width="50"
+                                                    SortMemberPath="{Binding StatusConnectedSeconds}"
+                                                    SortDirection="Ascending"/>
+                                <DataGridTextColumn Binding="{Binding StatusPing}" Header="Ping" Width="35"/>
+                                <DataGridTextColumn Binding="{Binding StatusState}" Header="State" Width="60"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                        <TextBlock>🔇 Muted is only from the LAST time TF2 was run, not any changes during this time. And only the last 256 mutes.</TextBlock>
+                </StackPanel>
+            </Expander>
+            
             <Expander Header="Testing for TF2 commands" IsExpanded="False">
                 <StackPanel>
                     <ToolBar Height="33" Margin="0,0,0,0"  HorizontalAlignment="Stretch" VerticalAlignment="Top">

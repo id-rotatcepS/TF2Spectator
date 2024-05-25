@@ -1,4 +1,5 @@
-﻿using AspenWin;
+﻿using ASPEN;
+using AspenWin;
 
 using System;
 using System.ComponentModel;
@@ -63,10 +64,16 @@ namespace TF2SpectatorWin
         {
             // Using ASPEN for common needs
             // logging just goes to the Log view textbox
-            ASPEN.Aspen.Log = new TF2SpectatorLog(this);
+            Aspen.Log = new TF2SpectatorLog(this);
 
             // settings load/save to the config file.
-            ASPEN.Aspen.Option = new TF2SpectatorSettings(this);
+            Aspen.Option = new TF2SpectatorSettings(this);
+
+            Aspen.Text = new Text();
+            //Aspen.Show = text-based dialogs: new DefaultDialogUtility();
+            //Aspen.Track = new DefaultCommandContextUtility();
+            //Aspen.Track.Start(Aspen.Track.CreateContextFor("TF2 Spectator"));
+
             // initialize primary source from loaded option
             TwitchInstance.AuthToken = Option.Get<string>(nameof(AuthToken));
 
@@ -111,9 +118,7 @@ namespace TF2SpectatorWin
         private TF2BotDetectorLogModel botDetectorLogModel;
         public ICommand ParseTBDCommand => botDetectorLogModel.ParseCommand;
 
-        private TF2LobbyTrackerModel LobbyTrackerModel;
-        public ICommand LobbyParseCommand => LobbyTrackerModel.LobbyParseCommand;
-
+        public TF2LobbyTrackerModel LobbyTrackerModel { get; set; }
 
         private static TF2Instance _tf2 = null;
 
@@ -432,5 +437,19 @@ namespace TF2SpectatorWin
         public string OutputString { get; set; }
 
         public string CommandLog { get; set; }
+    }
+
+    internal class Text : AspenUserMessages
+    {
+        public string Formatted(object key, params object[] args)
+        {
+            // return string.Format(resourceManager.GetString(key), args);
+            return string.Format(key as string, args);
+        }
+
+        public string Translated(object key)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

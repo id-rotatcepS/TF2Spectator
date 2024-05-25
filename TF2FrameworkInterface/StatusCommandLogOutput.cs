@@ -57,15 +57,22 @@ namespace TF2FrameworkInterface
 
         protected string LogFilePath
             => Path.Combine(TF2Path, "tf", LogFileName);
-        
+
+        //public delegate void StatusEvent(StatusCommandLogOutput source);
+        //public event StatusEvent StatusUpdated;
+
         private IEnumerable<string> LastLogResultsFiltered = null;
         protected IEnumerable<string> LogResultsFiltered
         {
             get
             {
                 IEnumerable<string> filtered = FilteredLines(LogFileContent);
-                if (filtered != null && filtered.Any()) 
+                if (filtered != null && filtered.Any())
+                {
                     LastLogResultsFiltered = filtered;
+                    //TODO results in an update stack overflow.  But now I'm not getting notifications when I have status.
+                    //StatusUpdated?.DynamicInvoke(this);
+                }
 
                 return LastLogResultsFiltered;
             }
@@ -205,7 +212,7 @@ namespace TF2FrameworkInterface
             //# userid name                uniqueid            connected ping loss state
             //#    744 "rotatcepS ⚙"     [U:1:123605865]     02:31       95    0 active
             // turns out connected could have an hour part... just in case allowing for empty minute part
-            @"^#\s+(?<userid>\d+)\s+\""(?<name>.*)\""\s+(?<uniqueid>\[U:\d+:\d+\])\s+(?:(?<connected_hr>\d+):)?(?:(?<connected_min>\d+):)?(?<connected_sec>\d\d)\s+(?<ping>\d+)\s+(?<loss>\d+)\s+(?<state>.*)"
+            @"^#\s+(?<userid>\d+)\s+\""(?<name>.*)\""\s+(?<uniqueid>\[U:\d+:\d+\])\s+(?:(?:(?<connected_hr>\d+):)?(?<connected_min>\d+):)?(?<connected_sec>\d?\d)\s+(?<ping>\d+)\s+(?<loss>\d+)\s+(?<state>.*)"
             );
 
         /// <summary>
@@ -246,10 +253,10 @@ namespace TF2FrameworkInterface
 
             int hrs = GetOptionalInt(match, "connected_hr");
             int min = GetOptionalInt(match, "connected_min");
-            min += hrs * 60;
+            //min += hrs * 60;
             int sec = GetOptionalInt(match, "connected_sec");
-            sec += min * 60;
-            ConnectedSeconds = sec;
+            //sec += min * 60;
+            ConnectedSeconds = sec + (min * 60) + (hrs * 60 * 60);
 
             Ping = GetInt(match.Groups["ping"].Value);
             Loss = GetInt(match.Groups["loss"].Value);
@@ -274,6 +281,19 @@ namespace TF2FrameworkInterface
             {
                 return 0;
             }
+        }
+
+        public bool IsDifferent(TF2Status lastGoodStatus)
+        {
+            if (lastGoodStatus == null)
+                return true;
+
+            return SteamUniqueID != lastGoodStatus.SteamUniqueID
+                || ConnectedSeconds != lastGoodStatus.ConnectedSeconds
+                || UserName != lastGoodStatus.UserName
+                || UserState != lastGoodStatus.UserState
+                || GameUserID != lastGoodStatus.GameUserID
+                ;
         }
 
     }

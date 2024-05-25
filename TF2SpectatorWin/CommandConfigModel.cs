@@ -204,7 +204,8 @@ namespace TF2SpectatorWin
             "!aimColor\tcrosshair aim color...\t(just an alias)\t\r\n" +
             //requires script setup "!aimRainbow\tAim Rainbow\t\t\r\n" +
             "!aimSize\tcrosshair aim size...\t(just an alias)\t\r\n" +
-            "!resetAim\tcrosshair aim reset\t(just an alias)\t\r\n";
+            "!resetAim\tcrosshair aim reset\t(just an alias)\t\r\n" +
+            "!quack\tplay ambient/bumper_car_quack{random|1|2|3|4|5|9|11}.wav\tplays a duck journal sound effect\t\r\n";
 
         #region TF2ClassHandling
 

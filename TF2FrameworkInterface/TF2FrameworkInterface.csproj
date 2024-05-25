@@ -95,6 +95,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BotHandling.cs" />
+    <Compile Include="LobbyPlayer.cs" />
     <Compile Include="StatusCommandLogOutput.cs" />
     <Compile Include="TF2BDFiles.cs" />
     <Compile Include="TF2Command.cs" />

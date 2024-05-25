@@ -78,6 +78,9 @@ CTFLobbyShared: ID:000245b178bebf3b  24 member(s), 0 pending
             return text.Split(new[] { "\r\n" }, System.StringSplitOptions.RemoveEmptyEntries);
         }
 
+        public delegate void LobbyEvent(TFDebugLobbyCommandOutput source);
+        public event LobbyEvent LobbyUpdated;
+
         protected void RunCommand()
         {
             if (TF2 == null)
@@ -91,6 +94,7 @@ CTFLobbyShared: ID:000245b178bebf3b  24 member(s), 0 pending
                 (result) =>
                 {
                     CommandOutput = result;
+                    LobbyUpdated?.DynamicInvoke(this);
                 });
             bool completed = afterTask.Wait(TF2Instance.COMMAND_TIMEOUT);
         }
@@ -119,7 +123,7 @@ CTFLobbyShared: ID:000245b178bebf3b  24 member(s), 0 pending
         /// the lobby "team" e.g. TF_GC_TEAM_INVADERS 
         /// <see cref="TF_GC_TEAM_DEFENDERS"/> <see cref="TF_GC_TEAM_INVADERS"/>
         /// </summary>
-        public string Team { get; private set; }
+        public string Team { get; internal set; }
         /// <summary>
         /// uniqueid e.g. [U:1:132658037]
         /// </summary>
