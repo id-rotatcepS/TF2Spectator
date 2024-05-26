@@ -44,6 +44,9 @@
                 <MenuItem Header="Configure">
                     <MenuItem IsChecked="{Binding IsTwitchConnected, Mode=OneWay}" Header="Link Twitch" Command="{Binding LaunchTwitchCommand}"/>
                     <Separator/>
+                    <MenuItem IsChecked="{Binding IsParsing, Mode=OneWay}" Header="Monitor Game Lobby" Command="{Binding LobbyParseCommand}"
+                              DataContext="{Binding LobbyTrackerModel}" />
+                    <Separator/>
                     <MenuItem Header="Edit Commands..." Command="{Binding OpenCommandsCommand}"/>
                     <Separator/>
                     <MenuItem Header="Save Config" Command="{Binding SaveConfigCommand}" 
@@ -52,7 +55,13 @@
 
             </Menu>
 
-            <Expander Header="TF2 ⌨🖱 (Rcon connection)" IsExpanded="{Binding TF2Expanded}">
+            <Expander IsExpanded="{Binding TF2Expanded}">
+                <Expander.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <Label>TF2 ⌨🖱 (Rcon connection)</Label>
+                        <Button Content="Edit TF2 Spectator Commands..." Command="{Binding OpenCommandsCommand}" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Expander.Header>
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
 
@@ -154,13 +163,18 @@
                 </StackPanel>
             </Expander>
 
-            <Button Content="Edit TF2 Spectator Commands..." Command="{Binding OpenCommandsCommand}" HorizontalAlignment="Center"/>
-
             <Expander IsExpanded="False" DataContext="{Binding LobbyTrackerModel}">
                 <Expander.Header>
                     <StackPanel Orientation="Horizontal">
                         <Label Content="Bot Kicking"/>
-                        <ToggleButton IsChecked="{Binding IsParsing, Mode=OneWay}" Content="Monitor Game Lobby" Command="{Binding LobbyParseCommand}" HorizontalAlignment="Left"/>
+                        <Button x:Name="lobby" HorizontalAlignment="Left" Height="30" VerticalAlignment="Top" 
+                                Command="{Binding LobbyParseCommand}"
+                                ToolTip="Activate automatic bot kicking and related features - mark new bots/cheaters in the list below">
+                            <StackPanel Orientation="Horizontal" Height="28">
+                                <Label Content="Monitor Game Lobby"/>
+                                <CheckBox IsChecked="{Binding IsParsing, Mode=OneWay}" IsEnabled="False"/>
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </Expander.Header>
                 <StackPanel Orientation="Vertical">
@@ -181,9 +195,23 @@
                             </DataGrid.Columns>
                         </DataGrid>
                         <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                            <Button Content="Mark Bot" Command="{Binding MarkBotCommand}" HorizontalAlignment="Stretch" Height="80"/>
+                            <Button Command="{Binding MarkBotCommand}" HorizontalAlignment="Stretch" Height="80"
+                                    ToolTip="Marks the single selection out of the two team lists as a cheater/bot account">
+                                <StackPanel Orientation="Vertical">
+                                    <Label HorizontalAlignment="Center" Content="Mark Bot"/>
+                                    <Label HorizontalAlignment="Center" Content="👎"/>
+                                </StackPanel>
+                            </Button>
                             <Separator/>
                             <Button Content="Unmark" Command="{Binding MarkNotBotCommand}" HorizontalAlignment="Stretch" Height="40"/>
+                            <!--<Separator/>
+                            <Button Command="{Binding MarkFriendCommand}" HorizontalAlignment="Stretch" Height="80"
+                                    ToolTip="Prevent kicking - the single selection out of the two team lists marked as a friend/human account">
+                                <StackPanel Orientation="Vertical">
+                                    <Label HorizontalAlignment="Center" Content="No Kick"/>
+                                    <Label HorizontalAlignment="Center" Content="💚"/>
+                                </StackPanel>
+                            </Button>-->
                         </StackPanel>
                         <DataGrid ItemsSource="{Binding LobbyBluCollection}"
                                   Width="340" Height="280" Background="CornflowerBlue" BorderBrush="DarkBlue" BorderThickness="3"

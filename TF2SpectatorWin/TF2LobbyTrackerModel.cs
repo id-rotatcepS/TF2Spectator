@@ -205,6 +205,7 @@ namespace TF2SpectatorWin
             if (IsParsing)
             {
                 cancellationTokenSource.Cancel();
+                ViewNotification(nameof(IsParsing));
                 return;
             }
             // based on https://stackoverflow.com/questions/23340894/polling-the-right-way
@@ -236,6 +237,8 @@ namespace TF2SpectatorWin
             // the TaskCreationOptions.LongRunning option tells the task-scheduler to not use a normal thread-pool thread
         }
 
-        public bool IsParsing => cancellationTokenSource != null;
+        public bool IsParsing 
+            => cancellationTokenSource != null 
+            && !cancellationTokenSource.IsCancellationRequested;
     }
 }
