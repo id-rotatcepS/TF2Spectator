@@ -156,6 +156,8 @@ namespace TF2FrameworkInterface
                     l => new LobbyPlayer(l, ServerDetail))
                 ));
 
+        private KickInteraction Kicking { get; set; }
+
         public void RefreshPlayers()
         {
             // merge lists so we keep existing populated bot instances.
@@ -226,13 +228,16 @@ namespace TF2FrameworkInterface
 
         public void Next()
         {
+            if (Kicking != null && Kicking.IsBusy)
+                return;
+
             //cancelled = false;
             Bot bot = GetNextKickableBot();
             if (bot == null)
                 return;
-            //TODO note that currently every "IsBot" is also "IsBanned" and skips straight to kicking.
-            new KickInteraction(bot, this)
-                .Begin();
+
+            Kicking = new KickInteraction(bot, this);
+            Kicking.Begin();
         }
 
         private Bot GetNextKickableBot()
@@ -272,18 +277,18 @@ namespace TF2FrameworkInterface
             });
         }
 
-        private void RecordThisIsNotABot(Bot bot)
-        {
-            string steamUniqueID = bot.SteamUniqueID;
-            if (!SkippedList.Contains(steamUniqueID))
-                SkippedList.Add(steamUniqueID);
-        }
-
         internal void ChoseToSkip(Bot bot)
         {
             RecordThisIsNotABot(bot);
             //if(!cancelled)
             Next();
+        }
+
+        private void RecordThisIsNotABot(Bot bot)
+        {
+            string steamUniqueID = bot.SteamUniqueID;
+            if (!SkippedList.Contains(steamUniqueID))
+                SkippedList.Add(steamUniqueID);
         }
 
         internal void ChoseToKickBot(Bot votingOnThisBot)
@@ -349,6 +354,7 @@ namespace TF2FrameworkInterface
             player.IsBanned = IsBannedID(player.SteamID);
             SaveBanList();
         }
+
         public void RecordAsAFriend(LobbyPlayer player)
         {
             //TODO keep a list of trusted users
@@ -382,6 +388,7 @@ namespace TF2FrameworkInterface
 
         internal void Begin()
         {
+            this.IsBusy = true;
             if (VotingOnThisBot.IsBanned)
             {
                 SetupAwaitKick();
@@ -393,6 +400,8 @@ namespace TF2FrameworkInterface
                 IsResponseReceived,
                 afterresponse: AfterVoted);
         }
+
+        internal bool IsBusy { get; set; } = false;
 
         private void OfferKick()
         {
@@ -427,7 +436,7 @@ namespace TF2FrameworkInterface
 
             string audioAlert = $"play player/cyoa_pda_beep4.wav;";
 
-            string textAlert = $"say_party |spec| bot/cheat: '{VotingOnThisBot.Name}'    -     {kickkey} | {skipkey}";
+            string textAlert = $"say_party I'd muted: '{VotingOnThisBot.Name}'    - bot?     '{kickkey}' (not: '{skipkey}')";
 
             string setupAndOfferKick =
                 $"setinfo {kick_response_variable} \"{blankValue}\";" +
@@ -479,8 +488,6 @@ namespace TF2FrameworkInterface
         {
             string reason = "cheating";
             return
-                //"play replay/replaydialog_warn.wav;" +// buzzer
-                "play ui/mm_rank_up.wav;" + // harp strum
                 //"say_party " +//TODO testing
                 $"callvote kick \"{bot.GameID} {reason}\"";
         }
@@ -541,7 +548,15 @@ namespace TF2FrameworkInterface
             else if (voted == skipValue)
                 ChoseToSkip();
             else
-                VotingOnThisBot = null;
+                _ = DoneKicking();
+        }
+
+        private Bot DoneKicking()
+        {
+            Bot bot = VotingOnThisBot;
+            VotingOnThisBot = null;
+            IsBusy = false;
+            return bot;
         }
 
         private void ChoseToKick()
@@ -554,8 +569,7 @@ namespace TF2FrameworkInterface
 
         private void ChoseToSkip()
         {
-            Bot bot = VotingOnThisBot;
-            VotingOnThisBot = null;
+            Bot bot = DoneKicking();
             //TODO event handler instead
             handler.ChoseToSkip(bot);
         }
@@ -563,6 +577,9 @@ namespace TF2FrameworkInterface
         private void SetupAwaitKick()
         {
             //Thread.Sleep(15000);
+
+            AnnounceKicking();
+
             while (VotingOnThisBot != null
                 && handler.IsBotPresent(VotingOnThisBot))
             {
@@ -571,11 +588,20 @@ namespace TF2FrameworkInterface
 
                 Thread.Sleep(5000);
             }
-            Bot bot = VotingOnThisBot;
-            VotingOnThisBot = null;
+            Bot bot = DoneKicking();
             //if(!cancelled)
             //TODO event handler instead
             handler.BotKickOver(bot);
+        }
+
+        private void AnnounceKicking()
+        {
+            Send(// "say_party trying to kick '"+ VotingOnThisBot.Name+"';" +
+                // buzzer:
+                //"play replay/replaydialog_warn.wav;"
+                // harp strum:
+                "play ui/mm_rank_up.wav;"
+                , null);
         }
     }
 }
