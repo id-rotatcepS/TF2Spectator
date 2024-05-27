@@ -179,9 +179,10 @@
                 </Expander.Header>
                 <StackPanel Orientation="Vertical">
                     <StackPanel Orientation="Horizontal">
-                        <DataGrid ItemsSource="{Binding LobbyRedCollection}" 
+                        <DataGrid ItemsSource="{Binding LobbyRedCollection}" x:Name="RedLobby"
                                   Width="340" Height="280" Background="HotPink" BorderBrush="DarkRed" BorderThickness="3"
                                   AutoGenerateColumns="False" IsReadOnly="True"
+                                  GotFocus="RedLobby_GotFocus" IsSynchronizedWithCurrentItem="False"
                                   CurrentItem="{Binding LobbyRedCurrent}"
                                   SelectedItem="{Binding LobbyRedSelected}" SelectionMode="Single">
                             <DataGrid.Columns>
@@ -213,9 +214,10 @@
                                 </StackPanel>
                             </Button>-->
                         </StackPanel>
-                        <DataGrid ItemsSource="{Binding LobbyBluCollection}"
+                        <DataGrid ItemsSource="{Binding LobbyBluCollection}" x:Name="BluLobby"
                                   Width="340" Height="280" Background="CornflowerBlue" BorderBrush="DarkBlue" BorderThickness="3"
                                   AutoGenerateColumns="False" IsReadOnly="True"
+                                  GotFocus="BluLobby_GotFocus" IsSynchronizedWithCurrentItem="False"
                                   CurrentItem="{Binding LobbyBluCurrent}"
                                   SelectedItem="{Binding LobbyBluSelected}" SelectionMode="Single">
 
