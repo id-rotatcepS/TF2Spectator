@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -93,6 +94,10 @@ namespace TF2FrameworkInterface
             if (GetCheaterIDs().Contains(player.steamid))
                 return;
 
+            // reset caches that depend on this file
+            _getCheaterNames = null;
+            _getCheaterIDs = null;
+
             userfile.players.Add(player);
         }
 
@@ -111,9 +116,12 @@ namespace TF2FrameworkInterface
 
         //TODO GetSuspiciousIDs() and use it to offer kicks that aren't confirmed already.
 
+        IEnumerable<string> _getCheaterIDs;
         public IEnumerable<string> GetCheaterIDs()
         {
-            return files.SelectMany(f => GetCheaterIDs(f));
+            if (_getCheaterIDs == null)
+                _getCheaterIDs = files.SelectMany(f => GetCheaterIDs(f));
+            return _getCheaterIDs;
         }
 
         public IEnumerable<string> GetUserCheaterIDs()
@@ -129,6 +137,27 @@ namespace TF2FrameworkInterface
             IEnumerable<TF2BDPlayer> cheaters = file.players.Where(p => p.IsCheater);
 
             return cheaters.Select(p => p.steamid);
+        }
+
+        IEnumerable<string> _getCheaterNames;
+        public IEnumerable<string> GetCheaterNames()
+        {
+            if (_getCheaterNames == null)
+                _getCheaterNames = files.SelectMany(f => GetCheaterNames(f));
+            return _getCheaterNames;
+        }
+
+        private IEnumerable<string> GetCheaterNames(TF2BD file)
+        {
+            if (file.players == null)
+                return new List<string>();
+
+            IEnumerable<TF2BDPlayer> namedCheaters = file.players.Where(
+                p => p.IsCheater
+                && p.last_seen != null
+                && p.last_seen.player_name != null);
+
+            return namedCheaters.Select(p => p.last_seen.player_name);
         }
     }
 

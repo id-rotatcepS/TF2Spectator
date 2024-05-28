@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 
 namespace TF2FrameworkInterface
@@ -109,12 +110,78 @@ namespace TF2FrameworkInterface
 
         private bool IsBot(string steamUniqueID)
         {
+            // possible bot - cheap test.
             bool isMuted = Muted.UIDs.Contains(steamUniqueID);
-            if (isMuted) 
+            if (isMuted)
                 return true;
 
+            // definite bot.
             bool isCheater = IsBannedID(steamUniqueID);
-            return isCheater;
+            if (isCheater)
+                return true;
+
+            // possible bot - more expensive test.
+            bool isSimilarNameToBot = IsNameForIDSimilarToABotName(steamUniqueID);
+            if (isSimilarNameToBot)
+                return true;
+
+            return false;
+        }
+
+        private bool IsNameForIDSimilarToABotName(string steamUniqueID)
+        {
+            string subjectName = Players.FirstOrDefault(p => p.SteamID == steamUniqueID)?.StatusName;
+            return IsSimilarToBotName(subjectName);
+        }
+
+        private bool IsSimilarToBotName(string subjectName)
+        {
+            if (subjectName == null)
+                return false;
+
+            string playerBotExName = BotEx(subjectName);
+            if (IsNotComparableBotEx(playerBotExName))
+                return false;
+
+            // assume one of the known bot names is the shortest version - allow new potential to have added text (like a hashtag)
+            return Banned.GetCheaterNames().Any(name =>
+            {
+                string botName = BotEx(name);
+                if (IsNotComparableBotEx(botName))
+                    return false;
+
+                // currently this would not catch twitter/myg0t without changing this to "contains"
+                // but that risks more false positives like "I love my GTO car" (mygt in the middle)
+                
+                // too many false positives: ("calico" and "ziggy" are sub names immediately found in regular longer-named players)
+                //bool result = playerBotExName.StartsWith(botName);
+                bool result = playerBotExName.Equals(botName);
+                if (result)
+                    return true;
+                return false;
+            });
+        }
+
+        private bool IsNotComparableBotEx(string botExName)
+        {
+            // subjective test of whether we have enough letters to be a reasonable test.
+            // e.g. myg0t (mygt)
+            return botExName == null || botExName.Length <= 4;
+        }
+
+        // "not an uppercase latin character"
+        private Regex notBotExChar = new Regex(@"\P{Lu}");
+        /// <summary>
+        /// Inspired by "soundex" this deconstructs the bot's name to a format easily checked against similarly transformed names.
+        /// </summary>
+        /// <param name="subjectName"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        private string BotEx(string subjectName)
+        {
+            string botEx = subjectName.ToUpper();
+            botEx = notBotExChar.Replace(botEx, string.Empty);
+            return botEx;
         }
 
         private bool IsBot(Bot player) => IsBot(player.SteamUniqueID);
@@ -201,9 +268,8 @@ namespace TF2FrameworkInterface
             if (_Players == null)
                 _Players = new ObservableCollection<LobbyPlayer>(newThings);
             else
-                //_Players.AddRange(newThings);
                 foreach (LobbyPlayer p in newThings)
-                    _Players.Add(p);// TODO from this thread modification not allowed
+                    _Players.Add(p);
 
         }
 
@@ -212,7 +278,8 @@ namespace TF2FrameworkInterface
             p.RemoveCounter++;
             // 2 or 3 is probably enough to keep the list from jumping around,
             // but I want to be able to kick people after disconnecting or after they got kicked when I get a chance to click them.
-            if (p.RemoveCounter > 15)
+            if (p.RemoveCounter > 15 
+                || (p.RemoveCounter > 3 && p.IsBanned)) // already marked for kicking - no need to keep them around.
                 _ = _Players.Remove(p);
         }
 
@@ -233,24 +300,48 @@ namespace TF2FrameworkInterface
 
             //cancelled = false;
             Bot bot = GetNextKickableBot();
-            if (bot == null)
-                return;
+            if (bot != null)
+                Kicking = new KickInteraction(bot, this);
+            else
+            {
+                // maybe there is somebody on the OTHER team worth marking at least.
+                bot = GetNextMarkableBot();
+                if (bot == null)
+                    return;
+                Kicking = new MarkInteraction(bot, this);
+            }
 
-            Kicking = new KickInteraction(bot, this);
             Kicking.Begin();
         }
 
         private Bot GetNextKickableBot()
         {
+            string myTeam = MyTeam;
+            return GetMarkableBots()
+                .Where(b => b.Team == myTeam)
+                .FirstOrDefault();
+        }
+
+        private IEnumerable<Bot> GetMarkableBots()
+        {
             RefreshBotList();
             AddBotDetail();
-            string myTeam = MyTeam;
             return Bots.Where(b
-                => b.Team == myTeam
-                && !SkippedList.Contains(b.SteamUniqueID)
+                => !SkippedList.Contains(b.SteamUniqueID)
                 && !string.IsNullOrEmpty(b.GameID)
                 //&& VotingOnThisBot?.GameID != b.GameID // TODO can I remove this now thanks to SkippedList?
-                )
+                );
+        }
+
+        /// <summary>
+        /// a selection from the (potential) bots on the other team that aren't already banned
+        /// </summary>
+        /// <returns></returns>
+        private Bot GetNextMarkableBot()
+        {
+            string myTeam = MyTeam;
+            return GetMarkableBots()
+                .Where(b => b.Team != myTeam && !b.IsBanned)
                 .FirstOrDefault();
         }
 
@@ -375,9 +466,34 @@ namespace TF2FrameworkInterface
         }
     }
 
+    internal class MarkInteraction : KickInteraction
+    {
+        public MarkInteraction(Bot bot, BotHandling handler) 
+            : base(bot, handler)
+        {
+        }
+
+        // no change.
+        //protected override string GetOfferKickAudioAlert()
+        //{
+        //    return $"play player/cyoa_pda_beep4.wav;";
+        //}
+
+        protected override string GetOfferKickTextAlert(string kickkey, string skipkey)
+        {
+            return $"say_party '{VotingOnThisBot.Name}' named or muted like a past bot    - deciding if I will mark ('{kickkey}') or not ('{skipkey}')";
+        }
+
+        protected override void SetupAwaitKick()
+        {
+            // do nothing - we're not kicking.
+        }
+
+    }
+
     internal class KickInteraction
     {
-        private Bot VotingOnThisBot;
+        protected Bot VotingOnThisBot;
         private readonly BotHandling handler;
 
         public KickInteraction(Bot bot, BotHandling handler)
@@ -391,6 +507,7 @@ namespace TF2FrameworkInterface
             this.IsBusy = true;
             if (VotingOnThisBot.IsBanned)
             {
+                // no need to offer, just act.
                 SetupAwaitKick();
                 return;
             }
@@ -410,20 +527,18 @@ namespace TF2FrameworkInterface
 
             string kickkey = "0";
             string skipkey = "SEMICOLON";
-            string kickCommand = FixQuotes(VoteKickCommand(VotingOnThisBot));
 
             string setupKick =
                 $"alias bind_kickkey \"" +
-                //$"setinfo {kick_response_variable} \"{VotingOnThisBot.SteamUniqueID}\";" +
-                $"setinfo {kick_response_variable} \"{kickValue}\";" +
-                //TODO if this just doesn't work due to quotes -leave it out...let the retry script do the kicking (and change it to pause AFTER the first try)
-                //kickCommand +
-                $";unbind {kickkey};unbind {skipkey}" +
+                    //$"setinfo {kick_response_variable} \"{VotingOnThisBot.SteamUniqueID}\";" +
+                    $"setinfo {kick_response_variable} {kickValue};" +
+                    $"unbind {kickkey};unbind {skipkey}" +
                 $"\";" +
                 $"bind {kickkey} bind_kickkey;";
             string setupSkip =
                 $"alias bind_skipkey \"" +
-                $"setinfo {kick_response_variable} {skipValue};unbind {kickkey};unbind {skipkey}" +
+                    $"setinfo {kick_response_variable} {skipValue};" +
+                    $"unbind {kickkey};unbind {skipkey}" +
                 $"\";" +
                 $"bind {skipkey} bind_skipkey;";
 
@@ -434,9 +549,9 @@ namespace TF2FrameworkInterface
             // (not tested, maybe not ambient in front) "ambient/lair/jungle_alarm.wav" // single honk
             // didn't work when I tried, might require mode enabled?: "ui/coach/go_here.wav" // coach whistle
 
-            string audioAlert = $"play player/cyoa_pda_beep4.wav;";
+            string audioAlert = GetOfferKickAudioAlert();
 
-            string textAlert = $"say_party I'd muted: '{VotingOnThisBot.Name}'    - bot?     '{kickkey}' (not: '{skipkey}')";
+            string textAlert = GetOfferKickTextAlert(kickkey, skipkey);
 
             string setupAndOfferKick =
                 $"setinfo {kick_response_variable} \"{blankValue}\";" +
@@ -446,6 +561,16 @@ namespace TF2FrameworkInterface
                 textAlert;
 
             Send(setupAndOfferKick, null);
+        }
+
+        protected virtual string GetOfferKickAudioAlert()
+        {
+            return $"play player/cyoa_pda_beep4.wav;";
+        }
+
+        protected virtual string GetOfferKickTextAlert(string kickkey, string skipkey)
+        {
+            return $"say_party '{VotingOnThisBot.Name}' named or muted like a past bot    - deciding if I will kick ('{kickkey}') or not ('{skipkey}')";
         }
 
         private const string kick_response_variable = "tf2spec_kick_response";
@@ -574,7 +699,7 @@ namespace TF2FrameworkInterface
             handler.ChoseToSkip(bot);
         }
 
-        private void SetupAwaitKick()
+        protected virtual void SetupAwaitKick()
         {
             //Thread.Sleep(15000);
 
