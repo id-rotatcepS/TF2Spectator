@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
 using TF2FrameworkInterface;
 
 namespace TF2SpectatorWin
@@ -41,6 +42,7 @@ namespace TF2SpectatorWin
                 {
                     ViewNotification(nameof(LobbyRedCollection));
                     ViewNotification(nameof(LobbyBluCollection));
+                    ViewNotification(nameof(TeamColor));
                 };
 
             return handler;
@@ -134,6 +136,12 @@ namespace TF2SpectatorWin
 
         //public IEnumerable<LobbyPlayer> LobbyBluPlayers => LobbyPlayers.Where(p => p.IsBLU);
 
+        public Brush TeamColor => 
+            BotHandler.MyTeam == TF2DebugLobby.TF_GC_TEAM_DEFENDERS ? RedTeamColor 
+            : BotHandler.MyTeam == TF2DebugLobby.TF_GC_TEAM_INVADERS ? BluTeamColor
+            : null;
+
+        public Brush RedTeamColor => new SolidColorBrush(Colors.HotPink);
         public LobbyPlayer LobbyRedCurrent { get; set; }
         public LobbyPlayer LobbyRedSelected { get; set; }
         private ICollectionView lobbyRedCollection;
@@ -174,6 +182,7 @@ namespace TF2SpectatorWin
             return collectionView;
         }
 
+        public Brush BluTeamColor => new SolidColorBrush(Colors.CornflowerBlue);
         public LobbyPlayer LobbyBluCurrent { get; set; }
         public LobbyPlayer LobbyBluSelected { get; set; }
         private ICollectionView lobbyBluCollection;
@@ -226,6 +235,7 @@ namespace TF2SpectatorWin
                     //happens with next get of notified properties BotHandler.RefreshPlayers();
                     ViewNotification(nameof(LobbyRedCollection));
                     ViewNotification(nameof(LobbyBluCollection));
+                    ViewNotification(nameof(TeamColor));
 
                     Thread.Sleep(delay);
                     if (cancellationToken.IsCancellationRequested)

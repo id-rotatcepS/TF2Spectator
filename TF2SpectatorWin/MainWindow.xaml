@@ -163,7 +163,7 @@
                 </StackPanel>
             </Expander>
 
-            <Expander IsExpanded="False" DataContext="{Binding LobbyTrackerModel}">
+            <Expander IsExpanded="False" DataContext="{Binding LobbyTrackerModel}" Background="{Binding TeamColor}">
                 <Expander.Header>
                     <StackPanel Orientation="Horizontal">
                         <Label Content="Bot Kicking"/>
@@ -177,10 +177,10 @@
                         </Button>
                     </StackPanel>
                 </Expander.Header>
-                <StackPanel Orientation="Vertical">
+                <StackPanel Orientation="Vertical" Background="{Binding TeamColor}">
                     <StackPanel Orientation="Horizontal">
                         <DataGrid ItemsSource="{Binding LobbyRedCollection}" x:Name="RedLobby"
-                                  Width="340" Height="280" Background="HotPink" BorderBrush="DarkRed" BorderThickness="3"
+                                  Width="340" Height="280" Background="{Binding RedTeamColor}" BorderBrush="DarkRed" BorderThickness="3"
                                   AutoGenerateColumns="False" IsReadOnly="True"
                                   GotFocus="RedLobby_GotFocus" IsSynchronizedWithCurrentItem="False"
                                   CurrentItem="{Binding LobbyRedCurrent}"
@@ -194,6 +194,17 @@
                                 <DataGridTextColumn Binding="{Binding StatusPing}" Header="Ping" Width="35"/>
                                 <DataGridTextColumn Binding="{Binding StatusState}" Header="State" Width="60"/>
                             </DataGrid.Columns>
+                            <DataGrid.CellStyle>
+                                <Style TargetType="DataGridCell">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMissing}" Value="True">
+                                            <DataTrigger.Setters>
+                                                <Setter Property="Opacity" Value="0.7"/>
+                                            </DataTrigger.Setters>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.CellStyle>
                         </DataGrid>
                         <StackPanel Orientation="Vertical" VerticalAlignment="Center">
                             <Button Command="{Binding MarkBotCommand}" HorizontalAlignment="Stretch" Height="80"
@@ -215,7 +226,7 @@
                             </Button>-->
                         </StackPanel>
                         <DataGrid ItemsSource="{Binding LobbyBluCollection}" x:Name="BluLobby"
-                                  Width="340" Height="280" Background="CornflowerBlue" BorderBrush="DarkBlue" BorderThickness="3"
+                                  Width="340" Height="280" Background="{Binding BluTeamColor}" BorderBrush="DarkBlue" BorderThickness="3"
                                   AutoGenerateColumns="False" IsReadOnly="True"
                                   GotFocus="BluLobby_GotFocus" IsSynchronizedWithCurrentItem="False"
                                   CurrentItem="{Binding LobbyBluCurrent}"
@@ -230,6 +241,17 @@
                                 <DataGridTextColumn Binding="{Binding StatusPing}" Header="Ping" Width="35"/>
                                 <DataGridTextColumn Binding="{Binding StatusState}" Header="State" Width="60"/>
                             </DataGrid.Columns>
+                            <DataGrid.CellStyle>
+                                <Style TargetType="DataGridCell">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMissing}" Value="True">
+                                            <DataTrigger.Setters>
+                                                <Setter Property="Opacity" Value="0.7"/>
+                                            </DataTrigger.Setters>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.CellStyle>
                         </DataGrid>
                     </StackPanel>
                         <TextBlock>🔇 Muted is only from the LAST time TF2 was run, not any changes during this time. And only the last 256 mutes.</TextBlock>
