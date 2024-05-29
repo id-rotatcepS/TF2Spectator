@@ -175,6 +175,9 @@
                                 <CheckBox IsChecked="{Binding IsParsing, Mode=OneWay}" IsEnabled="False"/>
                             </StackPanel>
                         </Button>
+                        <Label>My UID:</Label>
+                        <TextBox x:Name="uuid" Text="{Binding SteamUUID,FallbackValue=[U:1:123456]}" 
+                                 Height="20" Width="90" VerticalContentAlignment="Center" />
                     </StackPanel>
                 </Expander.Header>
                 <StackPanel Orientation="Vertical" Background="{Binding TeamColor}">

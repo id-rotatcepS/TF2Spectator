@@ -309,6 +309,20 @@ namespace TF2SpectatorWin
             }
         }
 
+        public string SteamUUID
+        {
+            get => Option.Get<string>(nameof(SteamUUID));
+            set
+            {
+                string v = value?.Trim();
+                if (!v.Equals(Option.Get<string>(nameof(SteamUUID))))
+                {
+                    Option.Set(nameof(SteamUUID), v);
+                    //TODO reset lobby model
+                }
+            }
+        }
+
         private void DisconnectTwitch()
         {
             _twitch?.Dispose();

@@ -26,6 +26,12 @@ namespace TF2SpectatorWin
         private BotHandling BotHandler => _BotHandler
             ?? (_BotHandler = CreateBotHandler());
 
+        public string SteamUUID
+        {
+            get => tF2WindowsViewModel.SteamUUID;
+            set => tF2WindowsViewModel.SteamUUID = value;
+        }
+
         private BotHandling CreateBotHandler()
         {
             BotHandling handler = new BotHandling(tF2WindowsViewModel.TF2,
@@ -33,8 +39,7 @@ namespace TF2SpectatorWin
                 {
                     TF2Path = tF2WindowsViewModel.TF2Path,
                     PlayerlistPath = TF2WindowsViewModel.GetConfigFilePath("playerlist.json"),
-                    //TODO config source
-                    UserID = "[U:1:123650837]",
+                    UserID = SteamUUID,
                 });
 
             handler.GameLobbyUpdated +=

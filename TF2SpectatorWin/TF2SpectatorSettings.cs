@@ -90,6 +90,7 @@ namespace TF2SpectatorWin
             vm.ViewNotification(nameof(TF2WindowsViewModel.RconPort));
             vm.ViewNotification(nameof(TF2WindowsViewModel.BotDetectorLog));
             vm.ViewNotification(nameof(TF2WindowsViewModel.TwitchConnectMessage));
+            vm.ViewNotification(nameof(TF2WindowsViewModel.SteamUUID));
         }
 
         /// <summary>
@@ -151,6 +152,7 @@ namespace TF2SpectatorWin
             options[nameof(TF2WindowsViewModel.BotDetectorLog)] = lines.Length > 5 ? lines[5] : string.Empty;
 
             options[nameof(TF2WindowsViewModel.TwitchConnectMessage)] = lines.Length > 6 ? lines[6] : DefaultConnectMessage;
+            options[nameof(TF2WindowsViewModel.SteamUUID)] = lines.Length > 7 ? lines[7] : "[U:1:123456]";
         }
 
         internal void SaveConfig()
@@ -166,6 +168,7 @@ namespace TF2SpectatorWin
             content.AppendLine(ASPEN.Aspen.Option.Get<ushort>(nameof(TF2WindowsViewModel.RconPort)).ToString());
             content.AppendLine(ASPEN.Aspen.Option.Get<string>(nameof(TF2WindowsViewModel.BotDetectorLog)));
             content.AppendLine(ASPEN.Aspen.Option.Get<string>(nameof(TF2WindowsViewModel.TwitchConnectMessage)));
+            content.AppendLine(ASPEN.Aspen.Option.Get<string>(nameof(TF2WindowsViewModel.SteamUUID)));
 
             try
             {
