@@ -1,7 +1,8 @@
 ﻿using ASPEN;
-
 using AspenWin;
+using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Data;
@@ -23,8 +24,6 @@ namespace TF2SpectatorWin
         private TF2WindowsViewModel tF2WindowsViewModel;
 
         private BotHandling _BotHandler = null;
-        private BotHandling BotHandler => _BotHandler
-            ?? (_BotHandler = CreateBotHandler());
 
         public string SteamUUID
         {
@@ -34,23 +33,34 @@ namespace TF2SpectatorWin
 
         private BotHandling CreateBotHandler()
         {
-            BotHandling handler = new BotHandling(tF2WindowsViewModel.TF2,
-                new BotHandlingConfig
-                {
-                    TF2Path = tF2WindowsViewModel.TF2Path,
-                    PlayerlistPath = TF2WindowsViewModel.GetConfigFilePath("playerlist.json"),
-                    UserID = SteamUUID,
-                });
+            if (tF2WindowsViewModel.TF2 == null)
+                return null;
+            try
+            {
+                BotHandling handler = new BotHandling(tF2WindowsViewModel.TF2,
+                    new BotHandlingConfig
+                    {
+                        TF2Path = tF2WindowsViewModel.TF2Path,
+                        PlayerlistPath = TF2WindowsViewModel.GetConfigFilePath("playerlist.json"),
+                        UserID = SteamUUID,
+                    });
 
-            handler.GameLobbyUpdated +=
-                (x) =>
-                {
-                    ViewNotification(nameof(LobbyRedCollection));
-                    ViewNotification(nameof(LobbyBluCollection));
-                    ViewNotification(nameof(TeamColor));
-                };
+                handler.GameLobbyUpdated +=
+                    (x) =>
+                    {
+                        ViewNotification(nameof(LobbyRedCollection));
+                        ViewNotification(nameof(LobbyBluCollection));
+                        ViewNotification(nameof(TeamColor));
+                        ViewNotification(nameof(MeLabel));
+                    };
 
-            return handler;
+                return handler;
+            }
+            catch (Exception ex)
+            {
+                Aspen.Log.Error("Unable to Start: " + ex.Message);
+                return null;
+            }
         }
 
         internal TF2LobbyTrackerModel(TF2WindowsViewModel tF2WindowsViewModel)
@@ -64,6 +74,60 @@ namespace TF2SpectatorWin
                 execute: (o) => ToggleMonitorLobby(),
                 canExecute: (o) => true));
 
+        public Brush TeamColor =>
+            IsParsing ? (
+            _BotHandler?.MyTeam == TF2DebugLobby.TF_GC_TEAM_DEFENDERS ? RedTeamColor
+            : _BotHandler?.MyTeam == TF2DebugLobby.TF_GC_TEAM_INVADERS ? BluTeamColor
+            : null)
+            : null;
+
+        public string MeLabel
+        {
+            get
+            {
+                LobbyPlayer me = null;
+                if (IsParsing)
+                    me = _BotHandler?.Players.FirstOrDefault(player => player.IsMe);
+
+                if (me != null && me.IsRED)
+                    return "👉";
+                if (me != null && me.IsBLU)
+                    return "👈";
+                return "Mark Me";
+            }
+        }
+
+        private ICommand _MarkMeCommand;
+        public ICommand MarkMeCommand => _MarkMeCommand
+            ?? (_MarkMeCommand = new RelayCommand<object>(
+                execute: (o) => MarkMe(),
+                canExecute: (o) => CanMarkMe()));
+
+        private void MarkMe()
+        {
+            if (!IsParsing)
+                return;
+            if (_BotHandler == null)
+                return;
+
+            LobbyPlayer selected = GetLobbySelected();
+            if (selected == null)
+                return;
+
+            SteamUUID = selected.SteamID;
+            _BotHandler.MySteamUniqueID = SteamUUID;
+
+            _BotHandler.RefreshPlayers();
+        }
+
+        private bool CanMarkMe()
+        {
+            return IsParsing
+                && _BotHandler != null
+                && _BotHandler.MyTeam == null
+                && _BotHandler.Players.Any();
+        }
+
         private ICommand _MarkBotCommand;
         public ICommand MarkBotCommand => _MarkBotCommand
             ?? (_MarkBotCommand = new RelayCommand<object>(
@@ -72,30 +136,43 @@ namespace TF2SpectatorWin
 
         private bool CanMarkBot()
         {
-            bool redBad = LobbyRedSelected == null || LobbyRedSelected.IsMe;
-            bool bluBad = LobbyBluSelected == null || LobbyBluSelected.IsMe;
-            if (redBad && bluBad)
+            LobbyPlayer selected = GetLobbySelected();
+            if (selected == null)
                 return false;
 
-            if (!redBad && !bluBad)
-                return false;
-
-            LobbyPlayer selected = redBad ? LobbyBluSelected : LobbyRedSelected;
             if (selected.IsFriend)
                 return false;
 
             return !selected.IsBanned;
         }
 
+        private LobbyPlayer GetLobbySelected()
+        {
+            bool redBad = LobbyRedSelected == null || LobbyRedSelected.IsMe;
+            bool bluBad = LobbyBluSelected == null || LobbyBluSelected.IsMe;
+            if (redBad && bluBad)
+                return null;
+
+            if (!redBad && !bluBad)
+                return null;
+
+            return redBad ? LobbyBluSelected : LobbyRedSelected;
+        }
+
         private void MarkSelectionAsBot()
         {
-            LobbyPlayer selection = LobbyRedSelected ?? LobbyBluSelected;
+            if (!IsParsing)
+                return;
+            if (_BotHandler == null)
+                return;
+
+            LobbyPlayer selection = GetLobbySelected();
             if (selection == null)
                 return;
             //Aspen.Show?.QuestionToContinue("Kick {0} as a Cheater/Bot?", 
             //    () =>
             // next pass will see this as a banned bot and immediately start the kick (if it's the next entry).
-            BotHandler.RecordAsABot(selection);
+            _BotHandler.RecordAsABot(selection);
             //,
             //selection.StatusName);
         }
@@ -107,11 +184,16 @@ namespace TF2SpectatorWin
                 canExecute: (o) => (LobbyRedSelected ?? LobbyBluSelected)?.IsUserBanned ?? false));
         private void MarkSelectionNotABot()
         {
+            if (!IsParsing)
+                return;
+            if (_BotHandler == null)
+                return;
+
             LobbyPlayer selection = LobbyRedSelected ?? LobbyBluSelected;
             if (selection == null)
                 return;
 
-            BotHandler.UnRecordAsABot(selection);
+            _BotHandler.UnRecordAsABot(selection);
         }
 
         private ICommand _MarkFriendCommand;
@@ -122,13 +204,18 @@ namespace TF2SpectatorWin
 
         private void MarkSelectionAsFriend()
         {
-            LobbyPlayer selection = LobbyRedSelected ?? LobbyBluSelected;
+            if (!IsParsing)
+                return;
+            if (_BotHandler == null)
+                return;
+
+            LobbyPlayer selection = GetLobbySelected();
             if (selection == null)
                 return;
             //Aspen.Show.QuestionToContinue("Mark {0} as trusted?",
             //    () =>
             // next pass will see this as a banned bot and immediately start the kick (if it's the next entry).
-            BotHandler.RecordAsAFriend(selection);
+            _BotHandler.RecordAsAFriend(selection);
             //,
             //selection.StatusName);
         }
@@ -141,11 +228,6 @@ namespace TF2SpectatorWin
 
         //public IEnumerable<LobbyPlayer> LobbyBluPlayers => LobbyPlayers.Where(p => p.IsBLU);
 
-        public Brush TeamColor => 
-            BotHandler.MyTeam == TF2DebugLobby.TF_GC_TEAM_DEFENDERS ? RedTeamColor 
-            : BotHandler.MyTeam == TF2DebugLobby.TF_GC_TEAM_INVADERS ? BluTeamColor
-            : null;
-
         public Brush RedTeamColor => new SolidColorBrush(Colors.HotPink);
         public LobbyPlayer LobbyRedCurrent { get; set; }
         public LobbyPlayer LobbyRedSelected { get; set; }
@@ -154,6 +236,8 @@ namespace TF2SpectatorWin
         {
             get
             {
+                if (!IsParsing)
+                    return null;
                 if (_BotHandler == null)
                     return null;
                 RefreshLobbyDetails();
@@ -166,7 +250,12 @@ namespace TF2SpectatorWin
 
         private void RefreshLobbyDetails()
         {
-            BotHandler.RefreshPlayers();
+            if (!IsParsing)
+                return;
+            if (_BotHandler == null)
+                return;
+
+            _BotHandler.RefreshPlayers();
         }
 
         private ICollectionView CreateLobbyRedView()
@@ -180,7 +269,7 @@ namespace TF2SpectatorWin
         {
             //ICollectionView collectionView = CollectionViewSource.GetDefaultView(BotHandler.Players);
             // get independent instances to filter, not the default all-players viewer.
-            ICollectionView collectionView = new ListCollectionView(BotHandler.Players);
+            ICollectionView collectionView = new ListCollectionView(_BotHandler.Players);
             collectionView.SortDescriptions.Add(
                 new SortDescription(nameof(LobbyPlayer.StatusConnectedSeconds),
                 ListSortDirection.Ascending));
@@ -195,6 +284,8 @@ namespace TF2SpectatorWin
         {
             get
             {
+                if (!IsParsing)
+                    return null;
                 if (_BotHandler == null)
                     return null;
                 RefreshLobbyDetails();
@@ -234,13 +325,15 @@ namespace TF2SpectatorWin
             CancellationToken cancellationToken = cancellationTokenSource.Token;
             var listener = Task.Factory.StartNew(() =>
             {
-                while (true)
+                _BotHandler = CreateBotHandler();
+                while (_BotHandler != null)
                 {
-                    BotHandler.Next();
+                    _BotHandler.Next();
                     //happens with next get of notified properties BotHandler.RefreshPlayers();
                     ViewNotification(nameof(LobbyRedCollection));
                     ViewNotification(nameof(LobbyBluCollection));
                     ViewNotification(nameof(TeamColor));
+                    ViewNotification(nameof(MeLabel));
 
                     Thread.Sleep(delay);
                     if (cancellationToken.IsCancellationRequested)
@@ -248,12 +341,12 @@ namespace TF2SpectatorWin
                 }
                 cancellationTokenSource = null;
                 ViewNotification(nameof(IsParsing));
-            }, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            }, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);  
             // the TaskCreationOptions.LongRunning option tells the task-scheduler to not use a normal thread-pool thread
         }
 
-        public bool IsParsing 
-            => cancellationTokenSource != null 
+        public bool IsParsing
+            => cancellationTokenSource != null
             && !cancellationTokenSource.IsCancellationRequested;
     }
 }

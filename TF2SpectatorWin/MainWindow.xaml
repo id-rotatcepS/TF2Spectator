@@ -175,59 +175,13 @@
                                 <CheckBox IsChecked="{Binding IsParsing, Mode=OneWay}" IsEnabled="False"/>
                             </StackPanel>
                         </Button>
-                        <Label>My UID:</Label>
+                        <!--<Label>My UID:</Label>
                         <TextBox x:Name="uuid" Text="{Binding SteamUUID,FallbackValue=[U:1:123456]}" 
-                                 Height="20" Width="90" VerticalContentAlignment="Center" />
+                                 Height="20" Width="90" VerticalContentAlignment="Center" />-->
                     </StackPanel>
                 </Expander.Header>
                 <StackPanel Orientation="Vertical" Background="{Binding TeamColor}">
                     <StackPanel Orientation="Horizontal">
-                        <DataGrid ItemsSource="{Binding LobbyRedCollection}" x:Name="RedLobby"
-                                  Width="340" Height="280" Background="{Binding RedTeamColor}" BorderBrush="DarkRed" BorderThickness="3"
-                                  AutoGenerateColumns="False" IsReadOnly="True"
-                                  GotFocus="RedLobby_GotFocus" IsSynchronizedWithCurrentItem="False"
-                                  CurrentItem="{Binding LobbyRedCurrent}"
-                                  SelectedItem="{Binding LobbyRedSelected}" SelectionMode="Single">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Binding="{Binding TextIcon}" Header="Bot" Width="40"/>
-                                <DataGridTextColumn Binding="{Binding StatusName}" Header="Name" MaxWidth="150"/>
-                                <DataGridTextColumn Binding="{Binding TextTime}" Header="Time" Width="35"
-                                                    SortMemberPath="{Binding StatusConnectedSeconds}"
-                                                    SortDirection="Ascending"/>
-                                <DataGridTextColumn Binding="{Binding StatusPing}" Header="Ping" Width="35"/>
-                                <DataGridTextColumn Binding="{Binding StatusState}" Header="State" Width="60"/>
-                            </DataGrid.Columns>
-                            <DataGrid.CellStyle>
-                                <Style TargetType="DataGridCell">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsMissing}" Value="True">
-                                            <DataTrigger.Setters>
-                                                <Setter Property="Opacity" Value="0.7"/>
-                                            </DataTrigger.Setters>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </DataGrid.CellStyle>
-                        </DataGrid>
-                        <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                            <Button Command="{Binding MarkBotCommand}" HorizontalAlignment="Stretch" Height="80"
-                                    ToolTip="Marks the single selection out of the two team lists as a cheater/bot account">
-                                <StackPanel Orientation="Vertical">
-                                    <Label HorizontalAlignment="Center" Content="Mark Bot"/>
-                                    <Label HorizontalAlignment="Center" Content="👎"/>
-                                </StackPanel>
-                            </Button>
-                            <Separator/>
-                            <Button Content="Unmark" Command="{Binding MarkNotBotCommand}" HorizontalAlignment="Stretch" Height="40"/>
-                            <!--<Separator/>
-                            <Button Command="{Binding MarkFriendCommand}" HorizontalAlignment="Stretch" Height="80"
-                                    ToolTip="Prevent kicking - the single selection out of the two team lists marked as a friend/human account">
-                                <StackPanel Orientation="Vertical">
-                                    <Label HorizontalAlignment="Center" Content="No Kick"/>
-                                    <Label HorizontalAlignment="Center" Content="💚"/>
-                                </StackPanel>
-                            </Button>-->
-                        </StackPanel>
                         <DataGrid ItemsSource="{Binding LobbyBluCollection}" x:Name="BluLobby"
                                   Width="340" Height="280" Background="{Binding BluTeamColor}" BorderBrush="DarkBlue" BorderThickness="3"
                                   AutoGenerateColumns="False" IsReadOnly="True"
@@ -249,7 +203,56 @@
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsMissing}" Value="True">
                                             <DataTrigger.Setters>
-                                                <Setter Property="Opacity" Value="0.7"/>
+                                                <Setter Property="Opacity" Value="0.6"/>
+                                            </DataTrigger.Setters>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.CellStyle>
+                        </DataGrid>
+                        <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                            <Button Command="{Binding MarkBotCommand}" HorizontalAlignment="Stretch" Height="80"
+                                    ToolTip="Marks the single selection out of the two team lists as a cheater/bot account">
+                                <StackPanel Orientation="Vertical">
+                                    <Label HorizontalAlignment="Center" Content="Mark Bot"/>
+                                    <Label HorizontalAlignment="Center" Content="👎"/>
+                                </StackPanel>
+                            </Button>
+                            <Separator/>
+                            <Button Content="Unmark" Command="{Binding MarkNotBotCommand}" HorizontalAlignment="Stretch" Height="40"/>
+                            <Separator/>
+                            <Button Command="{Binding MarkMeCommand}" HorizontalAlignment="Stretch" Height="20"
+                                    Content="{Binding MeLabel, FallbackValue=Mark Me}"/>
+                            <Separator/>
+                            <Button Command="{Binding MarkFriendCommand}" HorizontalAlignment="Stretch" Height="80"
+                                    ToolTip="Prevent kicking - the single selection out of the two team lists marked as a friend/human account">
+                                <StackPanel Orientation="Vertical">
+                                    <Label HorizontalAlignment="Center" Content="No Kick"/>
+                                    <Label HorizontalAlignment="Center" Content="💚"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                        <DataGrid ItemsSource="{Binding LobbyRedCollection}" x:Name="RedLobby"
+                                  Width="340" Height="280" Background="{Binding RedTeamColor}" BorderBrush="DarkRed" BorderThickness="3"
+                                  AutoGenerateColumns="False" IsReadOnly="True"
+                                  GotFocus="RedLobby_GotFocus" IsSynchronizedWithCurrentItem="False"
+                                  CurrentItem="{Binding LobbyRedCurrent}"
+                                  SelectedItem="{Binding LobbyRedSelected}" SelectionMode="Single">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Binding="{Binding TextIcon}" Header="Bot" Width="40"/>
+                                <DataGridTextColumn Binding="{Binding StatusName}" Header="Name" MaxWidth="150"/>
+                                <DataGridTextColumn Binding="{Binding TextTime}" Header="Time" Width="35"
+                                                    SortMemberPath="{Binding StatusConnectedSeconds}"
+                                                    SortDirection="Ascending"/>
+                                <DataGridTextColumn Binding="{Binding StatusPing}" Header="Ping" Width="35"/>
+                                <DataGridTextColumn Binding="{Binding StatusState}" Header="State" Width="60"/>
+                            </DataGrid.Columns>
+                            <DataGrid.CellStyle>
+                                <Style TargetType="DataGridCell">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMissing}" Value="True">
+                                            <DataTrigger.Setters>
+                                                <Setter Property="Opacity" Value="0.6"/>
                                             </DataTrigger.Setters>
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -257,7 +260,8 @@
                             </DataGrid.CellStyle>
                         </DataGrid>
                     </StackPanel>
-                        <TextBlock>🔇 Muted is only from the LAST time TF2 was run, not any changes during this time. And only the last 256 mutes.</TextBlock>
+                    <TextBlock>🔇 Muted is only from the LAST time TF2 was run, not any changes during this time. And only the last 256 mutes.</TextBlock>
+                    <TextBlock>Team Color is always backwards after the teams are switched in round 2.</TextBlock>
                 </StackPanel>
             </Expander>
             

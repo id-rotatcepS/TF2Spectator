@@ -105,7 +105,13 @@ CTFLobbyShared: ID:000245b178bebf3b  24 member(s), 0 pending
     /// </summary>
     public class TF2DebugLobby
     {
+        /// <summary>
+        /// counter to how a/d and payload games work, "invaders" can mean RED team on 2nd round.
+        /// </summary>
         public static readonly string TF_GC_TEAM_INVADERS = "TF_GC_TEAM_INVADERS";
+        /// <summary>
+        /// counter to how a/d and payload games work, "defenders" can mean BLU team on 2nd round.
+        /// </summary>
         public static readonly string TF_GC_TEAM_DEFENDERS = "TF_GC_TEAM_DEFENDERS";
         public static Regex Matcher => new Regex(
             // tf_debug_lobby command format:
@@ -120,7 +126,7 @@ CTFLobbyShared: ID:000245b178bebf3b  24 member(s), 0 pending
         /// </summary>
         public string MemberNumber { get; private set; }
         /// <summary>
-        /// the lobby "team" e.g. TF_GC_TEAM_INVADERS 
+        /// the lobby "team" e.g. TF_GC_TEAM_INVADERS
         /// <see cref="TF_GC_TEAM_DEFENDERS"/> <see cref="TF_GC_TEAM_INVADERS"/>
         /// </summary>
         public string Team { get; internal set; }

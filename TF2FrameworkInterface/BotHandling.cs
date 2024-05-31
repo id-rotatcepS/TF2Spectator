@@ -201,6 +201,11 @@ namespace TF2FrameworkInterface
             return Banned.GetUserCheaterIDs().Contains(steamID);
         }
 
+        public bool IsFriendID(string steamID)
+        {
+            return SkippedList.Contains(steamID);
+        }
+
         public TF2Instance TF2 { get; }
         private TF2VoiceBanFile Muted { get; }
         private TF2BDFiles Banned { get; }
@@ -214,7 +219,7 @@ namespace TF2FrameworkInterface
             .Where(l => MySteamUniqueID == l.SteamUniqueID)
             .FirstOrDefault()?.Team;
 
-        public string MySteamUniqueID { get; }
+        public string MySteamUniqueID { get; set; }
 
         public ObservableCollection<LobbyPlayer> _Players;
         public ObservableCollection<LobbyPlayer> Players => _Players
@@ -253,6 +258,7 @@ namespace TF2FrameworkInterface
                         p.Update(lobbyInfo);
                     p.IsBanned = IsBannedID(p.SteamID);
                     p.IsUserBanned = IsUserBannedID(p.SteamID);
+                    p.IsFriend = IsFriendID(p.SteamID);
                     p.IsMe = MySteamUniqueID == p.SteamID;
                     p.IsMuted = IsMutedID(p.SteamID);
                 }
@@ -262,6 +268,7 @@ namespace TF2FrameworkInterface
             {
                 IsBanned = IsBannedID(l.SteamUniqueID),
                 IsUserBanned = IsUserBannedID(l.SteamUniqueID),
+                IsFriend = IsFriendID(l.SteamUniqueID),
                 IsMe = MySteamUniqueID == l.SteamUniqueID,
                 IsMuted = IsMutedID(l.SteamUniqueID),
             });
@@ -422,6 +429,9 @@ namespace TF2FrameworkInterface
 
         public void RecordAsABot(LobbyPlayer player)
         {
+            player.IsUserBanned = true;
+            player.IsBanned = true;
+
             TF2BDPlayer bot = new TF2BDPlayer
             {
                 attributes = new List<string> {
@@ -434,6 +444,7 @@ namespace TF2FrameworkInterface
                     time = new DateTime().Ticks
                 }
             };
+
             RecordAsABot(bot);
         }
 
@@ -448,6 +459,9 @@ namespace TF2FrameworkInterface
 
         public void RecordAsAFriend(LobbyPlayer player)
         {
+            SkippedList.Add(player.SteamID);
+            player.IsFriend = true;
+
             //TODO keep a list of trusted users
         }
 
