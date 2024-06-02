@@ -30,6 +30,15 @@ namespace TF2SpectatorWin
                                         "crosshair aim color...", RedeemColor,
                                         "set my crosshair color by color name (Teal, Azure, SlateGray...) or by RGB (0-255, 0-255, 0-255 or #xxxxxx)");
             twitch.AddCommand(colorSelection);
+
+            ChatCommandDetails botSuggestion = new ChatCommandDetails(
+                                        "kick a bot...", SuggestBot,
+                                        "suggest an in-game name you think is a bot");
+            twitch.AddCommand(botSuggestion);
+            ChatCommandDetails botList = new ChatCommandDetails(
+                                        "list bots", ListBots,
+                                        "list bots known are in the current game");
+            twitch.AddCommand(botList);
         }
 
         public void LoadCommandConfiguration(TwitchInstance twitch)
@@ -205,7 +214,29 @@ namespace TF2SpectatorWin
             //requires script setup "!aimRainbow\tAim Rainbow\t\t\r\n" +
             "!aimSize\tcrosshair aim size...\t(just an alias)\t\r\n" +
             "!resetAim\tcrosshair aim reset\t(just an alias)\t\r\n" +
+            "!bot\tkick a bot...\t(alias)" +
+            "!bots\tlist bots\t(alias)" +
             "!quack\tplay ambient/bumper_car_quack{random|1|2|3|4|5|9|11}.wav\tplays a duck journal sound effect\t\r\n";
+
+        #region TF2Bots
+        private void SuggestBot(string userDisplayName, string arguments, string messageID)
+        {
+            vm.Twitch.SendReplyWithWrapping(messageID, string.Format("Ok, {0}, if a name matches '{1}' we'll offer to kick it.", userDisplayName, arguments));
+            vm.SuggestLobbyBotName(arguments);
+        }
+
+        private void ListBots(string userDisplayName, string arguments, string messageID)
+        {
+            string bots = vm.GetLobbyBots();
+            string msg;
+            if (string.IsNullOrEmpty(bots))
+                msg = "There are no known bots in the game lobby.";
+            else
+                msg = "The following are known bots in the current game lobby:\n"
+                    + bots;
+            vm.Twitch.SendReplyWithWrapping(messageID, msg);
+        }
+        #endregion TF2Bots
 
         #region TF2ClassHandling
 

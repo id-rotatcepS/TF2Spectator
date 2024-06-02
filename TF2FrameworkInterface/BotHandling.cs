@@ -111,6 +111,9 @@ namespace TF2FrameworkInterface
         private bool IsBot(string steamUniqueID)
         {
             // possible bot - cheap test.
+            bool isSimilarNametoSuggestion = IsNameForIDSimilarToASuggestedName(steamUniqueID);
+            if (isSimilarNametoSuggestion)
+                return true;
             bool isMuted = Muted.UIDs.Contains(steamUniqueID);
             if (isMuted)
                 return true;
@@ -126,6 +129,20 @@ namespace TF2FrameworkInterface
                 return true;
 
             return false;
+        }
+
+        private bool IsNameForIDSimilarToASuggestedName(string steamUniqueID)
+        {
+            string subjectName = Players.FirstOrDefault(p => p.SteamID == steamUniqueID)?.StatusName;
+
+            return IsSimilarToSuggestedName(subjectName);
+        }
+
+        public bool IsSimilarToSuggestedName(string subjectName)
+        {
+            string subjectBotEx = BotEx(subjectName);
+
+            return SuggestedNames.Any(name => BotEx(name) == subjectBotEx);
         }
 
         private bool IsNameForIDSimilarToABotName(string steamUniqueID)
@@ -186,42 +203,42 @@ namespace TF2FrameworkInterface
 
         private bool IsBot(Bot player) => IsBot(player.SteamUniqueID);
 
-        public bool IsBannedID(string steamID)
+        private bool IsBannedID(string steamID)
         {
             return Banned.GetCheaterIDs().Contains(steamID);
         }
 
-        public bool IsMutedID(string steamID)
+        private bool IsMutedID(string steamID)
         {
             return Muted.UIDs.Contains(steamID);
         }
 
-        public bool IsUserBannedID(string steamID)
+        private bool IsUserBannedID(string steamID)
         {
             return Banned.GetUserCheaterIDs().Contains(steamID);
         }
 
-        public bool IsFriendID(string steamID)
+        private bool IsFriendID(string steamID)
         {
             return SkippedList.Contains(steamID);
         }
 
-        public TF2Instance TF2 { get; }
+        private TF2Instance TF2 { get; }
         private TF2VoiceBanFile Muted { get; }
         private TF2BDFiles Banned { get; }
-        public Bot VotingOnThisBot { get; private set; }
-        public TFDebugLobbyCommandOutput Lobby { get; }
-        public StatusCommandLogOutput ServerDetail { get; private set; }
-        public IEnumerable<Bot> Bots { get; private set; }
-        public List<string> SkippedList { get; } = new List<string>();
+        //public Bot VotingOnThisBot { get; private set; }
+        private TFDebugLobbyCommandOutput Lobby { get; }
+        private StatusCommandLogOutput ServerDetail { get; set; }
+        private IEnumerable<Bot> Bots { get; set; }
+        private List<string> SkippedList { get; } = new List<string>();
 
         public string MyTeam => Lobby.TF2DebugLobbyStatus
             .Where(l => MySteamUniqueID == l.SteamUniqueID)
             .FirstOrDefault()?.Team;
 
-        public string MySteamUniqueID { get; set; }
+        public string MySteamUniqueID { private get; set; }
 
-        public ObservableCollection<LobbyPlayer> _Players;
+        private ObservableCollection<LobbyPlayer> _Players;
         public ObservableCollection<LobbyPlayer> Players => _Players
             ?? (_Players = new ObservableCollection<LobbyPlayer>(
                 Lobby.TF2DebugLobbyStatus.Select(
@@ -283,10 +300,12 @@ namespace TF2FrameworkInterface
         private void RemovePlayer(LobbyPlayer p)
         {
             p.RemoveCounter++;
+            int factor = 3; // multiplier due to higher frequency of SetupAwaitKick
+
             // 2 or 3 is probably enough to keep the list from jumping around,
             // but I want to be able to kick people after disconnecting or after they got kicked when I get a chance to click them.
-            if (p.RemoveCounter > 15 
-                || (p.RemoveCounter > 3 && p.IsBanned)) // already marked for kicking - no need to keep them around.
+            if (p.RemoveCounter > 15 * factor
+                || (p.RemoveCounter > 3 * factor && p.IsBanned)) // already marked for kicking - no need to keep them around.
                 _ = _Players.Remove(p);
         }
 
@@ -295,6 +314,16 @@ namespace TF2FrameworkInterface
             // if they're still present, reset the remove counter
             foreach (LobbyPlayer p in present)
                 p.RemoveCounter = 0;
+        }
+
+        private List<string> SuggestedNames = new List<string>();
+        /// <summary>
+        /// add a temporary name suggestion to offer as a bot match.
+        /// </summary>
+        /// <param name="botName"></param>
+        public void SuggestBotName(string botName)
+        {
+            SuggestedNames.Add(botName);
         }
 
         //private bool cancelled = false;
@@ -482,7 +511,7 @@ namespace TF2FrameworkInterface
 
     internal class MarkInteraction : KickInteraction
     {
-        public MarkInteraction(Bot bot, BotHandling handler) 
+        public MarkInteraction(Bot bot, BotHandling handler)
             : base(bot, handler)
         {
         }
@@ -495,20 +524,22 @@ namespace TF2FrameworkInterface
 
         protected override string GetOfferKickTextAlert(string kickkey, string skipkey)
         {
-            return $"say_party '{VotingOnThisBot.Name}' named or muted like a past bot    - deciding if I will mark ('{kickkey}') or not ('{skipkey}')";
+            if (handler.IsSimilarToSuggestedName(VotingOnThisBot.Name))
+                return $"say_party twitch chat thinks '{VotingOnThisBot.Name}' is a bot    - deciding if I will mark ('{kickkey}') or not ('{skipkey}')";
+            else
+                return $"say_party '{VotingOnThisBot.Name}' named or muted like a past bot    - deciding if I will mark ('{kickkey}') or not ('{skipkey}')";
         }
 
         protected override void SetupAwaitKick()
         {
             // do nothing - we're not kicking.
         }
-
     }
 
     internal class KickInteraction
     {
         protected Bot VotingOnThisBot;
-        private readonly BotHandling handler;
+        protected readonly BotHandling handler;
 
         public KickInteraction(Bot bot, BotHandling handler)
         {
@@ -641,6 +672,8 @@ namespace TF2FrameworkInterface
         {
             Polling(kick_response_variable, (string resp) =>
             {
+                //TODO add a timeout-like thing
+
                 //if (cancelled) return true;
                 if (!validResponse(resp))
                     return false;
@@ -662,7 +695,7 @@ namespace TF2FrameworkInterface
 
         private void SleepAndPoll(string variableName, Func<string, bool> valueSetTest)
         {
-            Thread.Sleep(500);
+            Thread.Sleep(250);
             Polling(variableName, valueSetTest);
         }
 
@@ -722,10 +755,10 @@ namespace TF2FrameworkInterface
             while (VotingOnThisBot != null
                 && handler.IsBotPresent(VotingOnThisBot))
             {
-                Thread.Sleep(1000);
+                Thread.Sleep(500);
                 Send(VoteKickCommand(VotingOnThisBot), null);
 
-                Thread.Sleep(5000);
+                Thread.Sleep(3000);
             }
             Bot bot = DoneKicking();
             //if(!cancelled)

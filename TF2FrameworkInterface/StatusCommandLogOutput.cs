@@ -150,9 +150,9 @@ namespace TF2FrameworkInterface
                 // give the file time to appear
                 if (completed)
                 {
-                    for (int i = 0; i < 5 && !File.Exists(LogFilePath); ++i)
+                    for (int i = 0; i < 20 && !File.Exists(LogFilePath); ++i)
                     {
-                        Thread.Sleep(1000);
+                        Thread.Sleep(250);
                     }
                     LogFileContent = File.ReadAllText(LogFilePath);
                 }

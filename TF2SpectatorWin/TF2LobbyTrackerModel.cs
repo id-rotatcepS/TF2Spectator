@@ -1,6 +1,7 @@
 ﻿using ASPEN;
 using AspenWin;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading;
@@ -87,7 +88,7 @@ namespace TF2SpectatorWin
             {
                 LobbyPlayer me = null;
                 if (IsParsing)
-                    me = _BotHandler?.Players.FirstOrDefault(player => player.IsMe);
+                    me = GetMe();
 
                 if (me != null && me.IsRED)
                     return "👉";
@@ -95,6 +96,11 @@ namespace TF2SpectatorWin
                     return "👈";
                 return "Mark Me";
             }
+        }
+
+        private LobbyPlayer GetMe()
+        {
+            return _BotHandler?.Players.FirstOrDefault(player => player.IsMe);
         }
 
         private ICommand _MarkMeCommand;
@@ -126,6 +132,49 @@ namespace TF2SpectatorWin
                 && _BotHandler != null
                 && _BotHandler.MyTeam == null
                 && _BotHandler.Players.Any();
+        }
+
+
+        public void AddTwitchBotSuggestion(string name)
+        {
+            _BotHandler?.SuggestBotName(name);
+        }
+
+        public string GetBotInformation()
+        {
+            LobbyPlayer me = GetMe();
+            IEnumerable<LobbyPlayer> bots = _BotHandler?.Players
+                .Where(p => p.IsBanned);
+
+            string mybots = GetBotInformation(bots.Where(
+                p => p.IsRED == me.IsRED));
+            string others = GetBotInformation(bots.Where(
+                p => p.IsRED != me.IsRED));
+
+            string result = string.Empty;
+            if (!string.IsNullOrEmpty(mybots))
+                result +=
+                    "On my team:\n"
+                    + mybots;
+
+            if (!string.IsNullOrEmpty(others))
+                result +=
+                    "On the other team:\n"
+                    + others;
+
+            return result;
+        }
+
+        private string GetBotInformation(IEnumerable<LobbyPlayer> bots)
+        {
+            return string.Join("\n",
+                            bots.Select(p => string.Format(
+                                "{2}{1}{0}",
+                                p.StatusName,
+                                p.TextIcon,
+                                p.IsMissing ? "❌" : ""
+                                )
+                            ));
         }
 
         private ICommand _MarkBotCommand;
@@ -317,11 +366,11 @@ namespace TF2SpectatorWin
             cancellationTokenSource = new CancellationTokenSource();
             ViewNotification(nameof(IsParsing));
 
-            // every 5 seconds we get-lobby, load-detail, check for bots.
+            // every 2 seconds we get-lobby, load-detail, check for bots.
             // every get-lobby we also generate event that requests view refresh of red & blue lists
             // Get of those lists does RefreshPlayers - based on latest lobby info
 
-            int delay = 5000;
+            int delay = 2000;
             CancellationToken cancellationToken = cancellationTokenSource.Token;
             var listener = Task.Factory.StartNew(() =>
             {

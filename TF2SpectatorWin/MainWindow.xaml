@@ -181,14 +181,35 @@
                     </StackPanel>
                 </Expander.Header>
                 <StackPanel Orientation="Vertical" Background="{Binding TeamColor}">
+                    <StackPanel.Resources>
+                        <Style x:Key="LobbyCell" TargetType="DataGridCell">
+                            <Style.Triggers>
+                                
+                                <DataTrigger Binding="{Binding IsMissing}" Value="True">
+                                    <DataTrigger.Setters>
+                                        <Setter Property="Opacity" Value="0.6"/>
+                                    </DataTrigger.Setters>
+                                </DataTrigger>
+                                
+                                <DataTrigger Binding="{Binding IsBanned}" Value="True">
+                                    <DataTrigger.Setters>
+                                        <Setter Property="Background" Value="Orange"/>
+                                    </DataTrigger.Setters>
+                                </DataTrigger>
+                                
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Resources>
+                    
                     <StackPanel Orientation="Horizontal">
+                        
                         <DataGrid ItemsSource="{Binding LobbyBluCollection}" x:Name="BluLobby"
                                   Width="340" Height="280" Background="{Binding BluTeamColor}" BorderBrush="DarkBlue" BorderThickness="3"
                                   AutoGenerateColumns="False" IsReadOnly="True"
                                   GotFocus="BluLobby_GotFocus" IsSynchronizedWithCurrentItem="False"
                                   CurrentItem="{Binding LobbyBluCurrent}"
-                                  SelectedItem="{Binding LobbyBluSelected}" SelectionMode="Single">
-
+                                  SelectedItem="{Binding LobbyBluSelected}" SelectionMode="Single"
+                                  CellStyle="{StaticResource LobbyCell}">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Binding="{Binding TextIcon}" Header="Bot" Width="40"/>
                                 <DataGridTextColumn Binding="{Binding StatusName}" Header="Name" MaxWidth="150"/>
@@ -198,18 +219,8 @@
                                 <DataGridTextColumn Binding="{Binding StatusPing}" Header="Ping" Width="35"/>
                                 <DataGridTextColumn Binding="{Binding StatusState}" Header="State" Width="60"/>
                             </DataGrid.Columns>
-                            <DataGrid.CellStyle>
-                                <Style TargetType="DataGridCell">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsMissing}" Value="True">
-                                            <DataTrigger.Setters>
-                                                <Setter Property="Opacity" Value="0.6"/>
-                                            </DataTrigger.Setters>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </DataGrid.CellStyle>
                         </DataGrid>
+                        
                         <StackPanel Orientation="Vertical" VerticalAlignment="Center">
                             <Button Command="{Binding MarkBotCommand}" HorizontalAlignment="Stretch" Height="80"
                                     ToolTip="Marks the single selection out of the two team lists as a cheater/bot account">
@@ -232,12 +243,14 @@
                                 </StackPanel>
                             </Button>
                         </StackPanel>
+                        
                         <DataGrid ItemsSource="{Binding LobbyRedCollection}" x:Name="RedLobby"
                                   Width="340" Height="280" Background="{Binding RedTeamColor}" BorderBrush="DarkRed" BorderThickness="3"
                                   AutoGenerateColumns="False" IsReadOnly="True"
                                   GotFocus="RedLobby_GotFocus" IsSynchronizedWithCurrentItem="False"
                                   CurrentItem="{Binding LobbyRedCurrent}"
-                                  SelectedItem="{Binding LobbyRedSelected}" SelectionMode="Single">
+                                  SelectedItem="{Binding LobbyRedSelected}" SelectionMode="Single"
+                                  CellStyle="{StaticResource LobbyCell}">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Binding="{Binding TextIcon}" Header="Bot" Width="40"/>
                                 <DataGridTextColumn Binding="{Binding StatusName}" Header="Name" MaxWidth="150"/>
@@ -247,18 +260,8 @@
                                 <DataGridTextColumn Binding="{Binding StatusPing}" Header="Ping" Width="35"/>
                                 <DataGridTextColumn Binding="{Binding StatusState}" Header="State" Width="60"/>
                             </DataGrid.Columns>
-                            <DataGrid.CellStyle>
-                                <Style TargetType="DataGridCell">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsMissing}" Value="True">
-                                            <DataTrigger.Setters>
-                                                <Setter Property="Opacity" Value="0.6"/>
-                                            </DataTrigger.Setters>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </DataGrid.CellStyle>
                         </DataGrid>
+                        
                     </StackPanel>
                     <TextBlock>🔇 Muted is only from the LAST time TF2 was run, not any changes during this time. And only the last 256 mutes.</TextBlock>
                     <TextBlock>Team Color is always backwards after the teams are switched in round 2.</TextBlock>
