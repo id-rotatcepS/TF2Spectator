@@ -30,6 +30,15 @@ namespace TF2SpectatorWin
                                         "crosshair aim color...", RedeemColor,
                                         "set my crosshair color by color name (Teal, Azure, SlateGray...) or by RGB (0-255, 0-255, 0-255 or #xxxxxx)");
             twitch.AddCommand(colorSelection);
+
+            ChatCommandDetails botSuggestion = new ChatCommandDetails(
+                                        "kick a bot...", SuggestBot,
+                                        "suggest an in-game name you think is a bot");
+            twitch.AddCommand(botSuggestion);
+            ChatCommandDetails botList = new ChatCommandDetails(
+                                        "list bots", ListBots,
+                                        "list bots known are in the current game");
+            twitch.AddCommand(botList);
         }
 
         public void LoadCommandConfiguration(TwitchInstance twitch)
@@ -126,6 +135,8 @@ namespace TF2SpectatorWin
 
         //read from a file, use this as backup
         private static readonly string commandConfig =
+            //toggle x // is same as incrementvar x 0 1 1 // is same as toggle x 0 1 // toggle can get a list of values to toggle through as additional args.
+
             "!voteMapA\tnext_map_vote 0\tEnd-of-Round vote for the 1st map option (next_map_vote 0)\t\r\n" +
             "!voteMapB\tnext_map_vote 1\tEnd-of-Round vote for the 2nd map option (next_map_vote 1)\t\r\n" +
             "!voteMapC\tnext_map_vote 2\tEnd-of-Round vote for the 3rd map option (next_map_vote 2)\t\r\n" +
@@ -137,9 +148,18 @@ namespace TF2SpectatorWin
             //"tf2 die\tkill;wait 1000;kill;wait 1000;kill\tinstant death in game\t\r\n" +
             "tf2 explode\texplode;wait 1000;explode;wait 1000;explode\texplosive instant death in game\t\r\n" +
             //requires script setup "attempt a Taunt Kill\ttaunt_kill\tattempt to do a killing taunt if the right weapon is equipped.\t\r\n" +
-            "Big Guns\ttf_use_min_viewmodels 0;wait 20000;tf_use_min_viewmodels 1\tturns off \"min viewmodels\" for a few minutes\t\r\n" +
+            "Big Guns\ttoggle tf_use_min_viewmodels;wait 20000;toggle tf_use_min_viewmodels\ttoggles \"min viewmodels\" for a few minutes\tGuns are {tf_use_min_viewmodels|1:small|0:big} for a few minutes\r\n" +
             "HIDERATE!\tcl_showfps 0;wait 20000;cl_showfps 1\tturns off the game fps display for a few minutes\t\r\n" +
-            "boring HUD\tcl_hud_playerclass_use_playermodel 0;wait 20000;cl_hud_playerclass_use_playermodel 1\tturns off the 3d playermodel for a few minutes... kinda boring...like jpuck always has on\t\r\n" +
+            "boring HUD\ttoggle cl_hud_playerclass_use_playermodel;wait 20000;toggle cl_hud_playerclass_use_playermodel\ttoggles the 3d playermodel for a few minutes... kinda boring when off...like jpuck always has it\t3d player class model is {cl_hud_playerclass_use_playermodel|1:on|0:off} for a few minutes\r\n" +
+
+            "Black & White\tmat_color_projection 4;wait 20000;mat_color_projection 0\tChanges the game to Black & White for a few minutes\t\r\n" +
+            "Pixelated\tmat_viewportscale 0.1;wait 20000;mat_viewportscale 1\tChanges the game to giant pixels for a few minutes\t\r\n" +
+            "Dream Mode\tmat_bloom_scalefactor_scalar 50;wait 20000;mat_bloom_scalefactor_scalar 1\tGives a lighting bloom effect like we're playing in a glowy dream\t\r\n" +
+            "No Guns\ttoggle r_drawviewmodel;wait 20000;toggle r_drawviewmodel\ttoggles \"draw viewmodel\" for a few minutes\tGuns are {r_drawviewmodel|1:on|0:off} for a few minutes\r\n" +
+            "Long Arms\tviewmodel_fov 160;wait 20000;viewmodel_fov 54\tmaxes out \"viewmodel FOV\" for a few minutes\t\r\n" +
+            //" extreme looking:\r\n cl_pitchup/down 200 (def 89) to back/forward flip with mouse\r\n  (less than 89 to keep me from looking up/down)\r\n" +
+            //"mat_viewportscale 0.001563; mat_viewportupscale 0\r\n" +
+
             "Inspect Item\t+inspect;wait 60;-inspect\tinspect other player items or my held weapon\t\r\n" +
             //requires script setup "SEASONAL!noisemaker|TF2 Noisemaker\tactionLoopToggle\tturn on/off my noisemaker spam if the season/loadout/server allows\t\r\n" +
             "tf2 party chat...\tsay_party {0} in twitch says: '{1}'\te.g. \"!sayParty Hi\" says Hi to my party in tf2\t\r\n" +
@@ -184,7 +204,7 @@ namespace TF2SpectatorWin
             //"HUH 75-90\tfov_desired {1};wait 20000;fov_desired 90\t\t\r\n" +
             //"useless?!stopWeather\ttf_particles_disable_weather 0;wait 20000;tf_particles_disable_weather 1\tturns off weather effects for a few minutes? didn't work on carrier's snow.\t\r\n" +
             //"doesntwork!aimOpacity\tcl_crosshairalpha {1}\tneeds a number from 0-255 - changes how opaque the crosshair is from default 200\t\r\n" +
-            "pointless!showPosition\tcl_showpos 1;wait 20000;cl_showpos 0\tturns on game position info for a few minutes\t\r\n" +
+            "pointless!showPosition\ttoggle cl_showpos;wait 20000;toggle cl_showpos\ttoggles game position info for a few minutes\t\r\n" +
             "mehdefaultclass\tcl_class\tcurrent default class\tCurrent default class is {1}\r\n" +
             //"DoesntWork!users\tusers\tlist users on server\t{1}\r\n" +
             "tooAnnoyingToUse!tauntByName\ttaunt_by_name {1}\tIf it's equipped (and you got the name right), then it happens! (\"!tauntByName Taunt: The Schadenfreude\")\t\r\n" +
@@ -193,7 +213,30 @@ namespace TF2SpectatorWin
             "!aimColor\tcrosshair aim color...\t(just an alias)\t\r\n" +
             //requires script setup "!aimRainbow\tAim Rainbow\t\t\r\n" +
             "!aimSize\tcrosshair aim size...\t(just an alias)\t\r\n" +
-            "!resetAim\tcrosshair aim reset\t(just an alias)\t\r\n";
+            "!resetAim\tcrosshair aim reset\t(just an alias)\t\r\n" +
+            "!bot\tkick a bot...\t(alias)" +
+            "!bots\tlist bots\t(alias)" +
+            "!quack\tplay ambient/bumper_car_quack{random|1|2|3|4|5|9|11}.wav\tplays a duck journal sound effect\t\r\n";
+
+        #region TF2Bots
+        private void SuggestBot(string userDisplayName, string arguments, string messageID)
+        {
+            vm.Twitch.SendReplyWithWrapping(messageID, string.Format("Ok, {0}, if a name matches '{1}' we'll offer to kick it.", userDisplayName, arguments));
+            vm.SuggestLobbyBotName(arguments);
+        }
+
+        private void ListBots(string userDisplayName, string arguments, string messageID)
+        {
+            string bots = vm.GetLobbyBots();
+            string msg;
+            if (string.IsNullOrEmpty(bots))
+                msg = "There are no known bots in the game lobby.";
+            else
+                msg = "The following are known bots in the current game lobby:\n"
+                    + bots;
+            vm.Twitch.SendReplyWithWrapping(messageID, msg);
+        }
+        #endregion TF2Bots
 
         #region TF2ClassHandling
 

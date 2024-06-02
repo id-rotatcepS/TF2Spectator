@@ -87,7 +87,8 @@ namespace TF2SpectatorWin
                     TwitchUsername
                 }));
 
-            usersTask.Wait();
+            //TODO deal with incomplete result.
+            bool completed = usersTask.Wait(1000 * 15);
 
             GetUsersResponse getUsersResponse = usersTask.Result;
             return getUsersResponse.Users.First();

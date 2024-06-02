@@ -18,15 +18,22 @@ namespace TF2SpectatorWin
             this.SendCommandAndProcessResponse = commandRunner;
         }
 
+        private static readonly Regex randomCommandRegex = new Regex("{random(?:\\|(?<mapping>[^}]+))}");
         private static readonly Regex mappedCommandRegex = new Regex("{(?<command>\\D[^|}]*)(?:\\|(?<mapping>[^}]+))?}");
         private static readonly Regex mappedArgRegex = new Regex("{(?<numarg>\\d+)\\|(?<mapping>[^}]+)}");
 
         public string Format(string commandFormat, params object[] args)
         {
+            // deal with {random|option|option|option} to replace with a random one of the options
+            string randomsReplaced = randomCommandRegex.Replace(
+                commandFormat,
+                (match) => GetRandom(match.Groups["mapping"])
+                );
+
             // deal with {commandname} to replace arg with running command and getting its result (usually a variable output)
             // deal with {commmandname|value:mapped|value2:mapped2} to do both command and mapping together
             string mappedCommands = mappedCommandRegex.Replace(
-                commandFormat,
+                randomsReplaced,
                 (match) => GetMappedCommandResult(
                     match.Groups["command"],
                     match.Groups["mapping"])
@@ -43,6 +50,19 @@ namespace TF2SpectatorWin
 
             // remaining {0} normal format args
             return string.Format(mappedCommandsAndArgs, args);
+        }
+
+        private Random randomSource = new Random();
+        private string GetRandom(Group mappingGroup)
+        {
+            CaptureCollection options = mappingGroup.Captures;
+            if (options.Count > 0)
+            {
+                // [0-Count)
+                int rdmIndex = randomSource.Next(options.Count);
+                return options[rdmIndex].Value;
+            }
+            return "random";
         }
 
         private string GetMappedCommandResult(Group commandGroup, Group mappingGroup)
