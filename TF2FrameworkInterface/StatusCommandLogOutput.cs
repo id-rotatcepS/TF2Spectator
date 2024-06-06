@@ -129,23 +129,20 @@ namespace TF2FrameworkInterface
                     ), (result) => { })
                     .Wait(TF2Instance.COMMAND_TIMEOUT);
 
-                if (completed) completed = TF2.SendCommand(new StringCommand(
-                    "wait 30" // let the new logfile setting set in.
-                    + ";" +
-                    Command
-                //    ),
-                //    (result) => { }) // not interested - the log is what's interesting.
-                //    .Wait(TF2Instance.COMMAND_TIMEOUT);
-                +
-                    //TF2.SendCommand(new StringCommand(
+                if (completed) completed =
+                        TF2.SendCommand(new StringCommand(
+                            Command
+                            ),
+                            (result) => { }) // not interested - the log is what's interesting.
+                        .Wait(TF2Instance.COMMAND_TIMEOUT);
+
+                if (completed) completed =
+                    TF2.SendCommand(new StringCommand(
                     ";echo end;wait 30;" +// let the command write before closing the log file.
                     $"con_logfile \"\"" +
                     $";wait 30;echo end;"// force log to drop reference to the file.
                     ), (result) => { })
                     .Wait(TF2Instance.COMMAND_TIMEOUT);
-                //TF2.SendCommand(loggedCommand,
-                //    (result) => { }) // not interested - the log is what's interesting.
-                //    .Wait(TF2Instance.COMMAND_TIMEOUT);
 
                 // give the file time to appear
                 if (completed)

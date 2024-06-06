@@ -18,9 +18,9 @@ namespace TF2SpectatorWin
             this.SendCommandAndProcessResponse = commandRunner;
         }
 
-        private static readonly Regex randomCommandRegex = new Regex("{random(?:\\|(?<mapping>[^}]+))}");
-        private static readonly Regex mappedCommandRegex = new Regex("{(?<command>\\D[^|}]*)(?:\\|(?<mapping>[^}]+))?}");
-        private static readonly Regex mappedArgRegex = new Regex("{(?<numarg>\\d+)\\|(?<mapping>[^}]+)}");
+        private static readonly Regex randomCommandRegex = new Regex(@"{random\s*(?:\|(?<mapping>[^}|]*))+}");
+        private static readonly Regex mappedCommandRegex = new Regex(@"{(?<command>\D[^|}]*)(?:\|(?<mapping>[^}]+))?}");
+        private static readonly Regex mappedArgRegex = new Regex(@"{(?<numarg>\d+)\|(?<mapping>[^}]+)}");
 
         public string Format(string commandFormat, params object[] args)
         {

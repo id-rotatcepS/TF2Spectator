@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TF2SpectatorWin", "TF2Spect
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TwitchAuthInterface", "TwitchAuthInterface\TwitchAuthInterface.csproj", "{CB9E164B-0028-4446-B345-A9BDE3E597B1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -151,6 +153,26 @@ Global
 		{CB9E164B-0028-4446-B345-A9BDE3E597B1}.Release|x64.Build.0 = Release|Any CPU
 		{CB9E164B-0028-4446-B345-A9BDE3E597B1}.Release|x86.ActiveCfg = Release|Any CPU
 		{CB9E164B-0028-4446-B345-A9BDE3E597B1}.Release|x86.Build.0 = Release|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Debug|ARM.Build.0 = Debug|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Debug|x64.Build.0 = Debug|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Debug|x86.Build.0 = Debug|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Release|ARM.ActiveCfg = Release|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Release|ARM.Build.0 = Release|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Release|ARM64.Build.0 = Release|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Release|x64.ActiveCfg = Release|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Release|x64.Build.0 = Release|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Release|x86.ActiveCfg = Release|Any CPU
+		{BEE2CE5B-8F8A-4003-9E3F-671C6D9CF8EA}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

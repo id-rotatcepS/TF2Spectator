@@ -46,22 +46,41 @@ namespace TF2SpectatorWin
                         UserID = SteamUUID,
                     });
 
-                handler.GameLobbyUpdated +=
-                    (x) =>
-                    {
-                        ViewNotification(nameof(LobbyRedCollection));
-                        ViewNotification(nameof(LobbyBluCollection));
-                        ViewNotification(nameof(TeamColor));
-                        ViewNotification(nameof(MeLabel));
-                    };
+                handler.GameLobbyUpdated += LobbyUpdate;
 
                 return handler;
             }
             catch (Exception ex)
             {
-                Aspen.Log.Error("Unable to Start: " + ex.Message);
+                Aspen.Log.ErrorException(ex, "Unable to Start");
                 return null;
             }
+        }
+
+        private void LobbyUpdate(BotHandling handler)
+        {
+            LobbyUpdateDebug(handler);
+
+            ViewNotification(nameof(LobbyRedCollection));
+            ViewNotification(nameof(LobbyBluCollection));
+            ViewNotification(nameof(TeamColor));
+            ViewNotification(nameof(MeLabel));
+        }
+
+        private string lastLobbyUpdate = null;
+        private void LobbyUpdateDebug(BotHandling handler)
+        {
+            return;
+
+            string newLobbyUpdate = string.Format("G Lobby Upd: disp w/info {0}/{1}: t_d_l {2}, bot w/info {3}/{4}",
+                handler.Players.Count(p => p.HaveKickInfo),
+                handler.Players.Count,
+                handler.Lobby.TF2DebugLobbyStatus.Count(),
+                handler.Bots.Count(b => b.Status != null),
+                handler.Bots.Count()
+                );
+            if (lastLobbyUpdate != newLobbyUpdate)
+                Aspen.Log.Info(lastLobbyUpdate = newLobbyUpdate);
         }
 
         internal TF2LobbyTrackerModel(TF2WindowsViewModel tF2WindowsViewModel)
@@ -285,10 +304,10 @@ namespace TF2SpectatorWin
         {
             get
             {
-                if (!IsParsing)
-                    return null;
-                if (_BotHandler == null)
-                    return null;
+                if (lobbyRedCollection == null)
+                    if (!IsParsing || _BotHandler == null)
+                        return null;
+
                 RefreshLobbyDetails();
                 lobbyRedCollection?.Refresh();
 
@@ -333,10 +352,10 @@ namespace TF2SpectatorWin
         {
             get
             {
-                if (!IsParsing)
-                    return null;
-                if (_BotHandler == null)
-                    return null;
+                if (lobbyBluCollection == null)
+                    if (!IsParsing || _BotHandler == null)
+                        return null;
+
                 RefreshLobbyDetails();
                 lobbyBluCollection?.Refresh();
 
@@ -360,6 +379,8 @@ namespace TF2SpectatorWin
             {
                 cancellationTokenSource.Cancel();
                 ViewNotification(nameof(IsParsing));
+                ViewNotification(nameof(LobbyBluCollection));
+                ViewNotification(nameof(LobbyRedCollection));
                 return;
             }
             // based on https://stackoverflow.com/questions/23340894/polling-the-right-way
