@@ -88,11 +88,69 @@ namespace TF2SpectatorWin
             this.tF2WindowsViewModel = tF2WindowsViewModel;
         }
 
-        private ICommand _ParseCommand;
-        public ICommand LobbyParseCommand => _ParseCommand
-            ?? (_ParseCommand = new RelayCommand<object>(
-                execute: (o) => ToggleMonitorLobby(),
-                canExecute: (o) => true));
+        private void InstallVoteEraser()
+        {
+            UseCursor(Cursors.Wait, () =>
+            {
+                //string path = "master.zip";
+                //TF2BDFiles.CopyURLToFile("https://github.com/PazerOP/tf2_bot_detector/archive/refs/heads/master.zip", path);
+                //ZipFile zip = ZipFile.OpenRead(path);
+
+                //ZipPackage zip = ZipPackage.Open(path) as ZipPackage;
+                //Uri hudPart = new Uri(@"tf2_bot_detector-master\staging\tf2_addons\aaaaaaaaaa_votefailed_eraser_v2", UriKind.Relative);
+                //if (zip.PartExists(hudPart))
+                //{
+                //    PackagePart hud = zip.GetPart(hudPart);
+                //    hud.GetStream();
+                //}
+
+            });
+        }
+
+        private static void UseCursor(Cursor cur, Action action)
+        {
+            Cursor previous = Mouse.OverrideCursor;
+            try
+            {
+                Mouse.SetCursor(cur);
+
+                action?.Invoke();
+            }
+            finally
+            {
+                Mouse.SetCursor(previous);
+            }
+        }
+
+        private ICommand _OpenLobby;
+        public ICommand OpenLobbyCommand => _OpenLobby
+            ?? (_OpenLobby = new RelayCommand<object>(
+                (o) => OpenLobby(),
+                (o) => !string.IsNullOrWhiteSpace(tF2WindowsViewModel.TF2Path)));
+
+        private Lobby win;
+        private void OpenLobby()
+        {
+            if (win != null)
+            {
+                win.Activate();
+                return;
+            }
+
+            win = new Lobby
+            {
+                DataContext = this
+            };
+
+            win.Closed += (x, eventArgs) =>
+            {
+                EndMonitorLobby();
+                win = null;
+            };
+
+            StartMonitorLobby();
+            win.Show();
+        }
 
         public Brush TeamColor =>
             IsParsing ? (
@@ -371,18 +429,20 @@ namespace TF2SpectatorWin
             return collectionView;
         }
 
-
         private CancellationTokenSource cancellationTokenSource = null;
-        private void ToggleMonitorLobby()
+        private void EndMonitorLobby()
         {
-            if (IsParsing)
-            {
-                cancellationTokenSource.Cancel();
-                ViewNotification(nameof(IsParsing));
-                ViewNotification(nameof(LobbyBluCollection));
-                ViewNotification(nameof(LobbyRedCollection));
+            if (!IsParsing)
                 return;
-            }
+
+            cancellationTokenSource?.Cancel();
+            ViewNotification(nameof(IsParsing));
+            ViewNotification(nameof(LobbyBluCollection));
+            ViewNotification(nameof(LobbyRedCollection));
+        }
+
+        private void StartMonitorLobby()
+        {
             // based on https://stackoverflow.com/questions/23340894/polling-the-right-way
             cancellationTokenSource = new CancellationTokenSource();
             ViewNotification(nameof(IsParsing));
@@ -411,7 +471,7 @@ namespace TF2SpectatorWin
                 }
                 cancellationTokenSource = null;
                 ViewNotification(nameof(IsParsing));
-            }, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);  
+            }, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
             // the TaskCreationOptions.LongRunning option tells the task-scheduler to not use a normal thread-pool thread
         }
 

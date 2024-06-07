@@ -25,15 +25,5 @@ namespace TF2SpectatorWin
             // auto-scroll the log
             logScroller.ScrollToEnd();
         }
-
-        private void RedLobby_GotFocus(object sender, RoutedEventArgs e)
-        {
-            BluLobby.SelectedItem = null;
-        }
-
-        private void BluLobby_GotFocus(object sender, RoutedEventArgs e)
-        {
-            RedLobby.SelectedItem = null;
-        }
     }
 }

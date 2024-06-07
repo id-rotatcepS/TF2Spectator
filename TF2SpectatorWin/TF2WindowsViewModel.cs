@@ -118,9 +118,12 @@ namespace TF2SpectatorWin
         private TF2BotDetectorLogModel botDetectorLogModel;
         public ICommand ParseTBDCommand => botDetectorLogModel.ParseCommand;
 
+
         public TF2LobbyTrackerModel LobbyTrackerModel { get; set; }
+        public ICommand OpenLobbyCommand => LobbyTrackerModel.OpenLobbyCommand;
         public void SuggestLobbyBotName(string botName) => LobbyTrackerModel?.AddTwitchBotSuggestion(botName);
         public string GetLobbyBots() => LobbyTrackerModel?.GetBotInformation();
+
 
         private static TF2Instance _tf2 = null;
 

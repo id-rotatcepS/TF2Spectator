@@ -135,6 +135,7 @@
       <Private>True</Private>
       <Private>True</Private>
     </Reference>
+    <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Memory, Version=4.0.1.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
     </Reference>
@@ -259,6 +260,9 @@
     <Compile Include="CommandsEditorModel.cs" />
     <Compile Include="Config.cs" />
     <Compile Include="CustomCommandFormat.cs" />
+    <Compile Include="Lobby.xaml.cs">
+      <DependentUpon>Lobby.xaml</DependentUpon>
+    </Compile>
     <Compile Include="RelayCommand.cs" />
     <Compile Include="TF2BotDetectorLogModel.cs" />
     <Compile Include="TF2LobbyTrackerModel.cs" />
@@ -266,6 +270,10 @@
     <Compile Include="TF2WindowsViewModel.cs" />
     <Compile Include="TwitchInstance.cs" />
     <Page Include="Commands.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Lobby.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

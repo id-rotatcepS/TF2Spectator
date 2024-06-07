@@ -1,0 +1,99 @@
+﻿<Window x:Class="TF2SpectatorWin.Lobby"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TF2SpectatorWin"
+        mc:Ignorable="d"
+        Title="Game Lobby" Height="380" Width="760" ResizeMode="CanMinimize">
+    <StackPanel Orientation="Vertical" Background="{Binding TeamColor}" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel.Resources>
+            <Style x:Key="LobbyCell" TargetType="DataGridCell">
+                <Style.Triggers>
+
+                    <DataTrigger Binding="{Binding IsMissing}" Value="True">
+                        <DataTrigger.Setters>
+                            <Setter Property="Opacity" Value="0.6"/>
+                        </DataTrigger.Setters>
+                    </DataTrigger>
+
+                    <DataTrigger Binding="{Binding IsBanned}" Value="True">
+                        <DataTrigger.Setters>
+                            <Setter Property="Background" Value="Orange"/>
+                        </DataTrigger.Setters>
+                    </DataTrigger>
+
+                </Style.Triggers>
+            </Style>
+        </StackPanel.Resources>
+
+        <!--<Label>My UID:</Label>
+            <TextBox x:Name="uuid" Text="{Binding SteamUUID,FallbackValue=[U:1:123456]}" 
+                        Height="20" Width="90" VerticalContentAlignment="Center" />-->
+
+        <StackPanel Orientation="Horizontal">
+
+            <DataGrid ItemsSource="{Binding LobbyBluCollection}" x:Name="BluLobby"
+                                  Width="340" Height="280" Background="{Binding BluTeamColor}" BorderBrush="DarkBlue" BorderThickness="3"
+                                  AutoGenerateColumns="False" IsReadOnly="True"
+                                  GotFocus="BluLobby_GotFocus" IsSynchronizedWithCurrentItem="False"
+                                  CurrentItem="{Binding LobbyBluCurrent}"
+                                  SelectedItem="{Binding LobbyBluSelected}" SelectionMode="Single"
+                                  CellStyle="{StaticResource LobbyCell}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Binding="{Binding TextIcon}" Header="Bot" Width="40"/>
+                    <DataGridTextColumn Binding="{Binding StatusName}" Header="Name" MaxWidth="150"/>
+                    <DataGridTextColumn Binding="{Binding TextTime}" Header="Time" Width="35"
+                                                    SortMemberPath="{Binding StatusConnectedSeconds}"
+                                                    SortDirection="Ascending"/>
+                    <DataGridTextColumn Binding="{Binding StatusPing}" Header="Ping" Width="35"/>
+                    <DataGridTextColumn Binding="{Binding StatusState}" Header="State" Width="60"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                <Button Command="{Binding MarkBotCommand}" HorizontalAlignment="Stretch" Height="80"
+                                    ToolTip="Marks the single selection out of the two team lists as a cheater/bot account">
+                    <StackPanel Orientation="Vertical">
+                        <Label HorizontalAlignment="Center" Content="Mark Bot"/>
+                        <Label HorizontalAlignment="Center" Content="👎"/>
+                    </StackPanel>
+                </Button>
+                <Separator/>
+                <Button Content="Unmark" Command="{Binding MarkNotBotCommand}" HorizontalAlignment="Stretch" Height="40"/>
+                <Separator/>
+                <Button Command="{Binding MarkMeCommand}" HorizontalAlignment="Stretch" Height="20"
+                                    Content="{Binding MeLabel, FallbackValue=Mark Me}"/>
+                <Separator/>
+                <Button Command="{Binding MarkFriendCommand}" HorizontalAlignment="Stretch" Height="80"
+                                    ToolTip="Prevent kicking - the single selection out of the two team lists marked as a friend/human account">
+                    <StackPanel Orientation="Vertical">
+                        <Label HorizontalAlignment="Center" Content="No Kick"/>
+                        <Label HorizontalAlignment="Center" Content="💚"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+
+            <DataGrid ItemsSource="{Binding LobbyRedCollection}" x:Name="RedLobby"
+                                  Width="340" Height="280" Background="{Binding RedTeamColor}" BorderBrush="DarkRed" BorderThickness="3"
+                                  AutoGenerateColumns="False" IsReadOnly="True"
+                                  GotFocus="RedLobby_GotFocus" IsSynchronizedWithCurrentItem="False"
+                                  CurrentItem="{Binding LobbyRedCurrent}"
+                                  SelectedItem="{Binding LobbyRedSelected}" SelectionMode="Single"
+                                  CellStyle="{StaticResource LobbyCell}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Binding="{Binding TextIcon}" Header="Bot" Width="40"/>
+                    <DataGridTextColumn Binding="{Binding StatusName}" Header="Name" MaxWidth="150"/>
+                    <DataGridTextColumn Binding="{Binding TextTime}" Header="Time" Width="35"
+                                                    SortMemberPath="{Binding StatusConnectedSeconds}"
+                                                    SortDirection="Ascending"/>
+                    <DataGridTextColumn Binding="{Binding StatusPing}" Header="Ping" Width="35"/>
+                    <DataGridTextColumn Binding="{Binding StatusState}" Header="State" Width="60"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+        </StackPanel>
+        <TextBlock>🔇 Muted is only from the LAST time TF2 was run, not any changes during this time. And only the last 256 mutes.</TextBlock>
+        <TextBlock>Team Color is always backwards after the teams are switched in round 2.</TextBlock>
+    </StackPanel>
+</Window>

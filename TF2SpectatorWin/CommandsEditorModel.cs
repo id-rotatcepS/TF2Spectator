@@ -29,7 +29,7 @@ namespace TF2SpectatorWin
                 (o, b) => CommandDataChanged = true;
         }
 
-        Commands win;
+        private Commands win;
         private void OpenCommands()
         {
             if (win != null)
@@ -38,7 +38,13 @@ namespace TF2SpectatorWin
                 return;
             }
 
-            win = new Commands();
+            win = new Commands
+            {
+                DataContext = this
+            };
+
+            win.Closed += CommandsClosedSaveChanges;
+
             //win.CommandsDataGrid.AddingNewItem += (o, e) => { };
             //win.CommandsDataGrid.Drop += ;
             // I guess this is the modern version of .CellValueChanged and .CellEndEdit
@@ -52,10 +58,6 @@ namespace TF2SpectatorWin
             };
 
             PrepareCommandData(win);
-
-            win.DataContext = this;
-
-            win.Closed += CommandsClosedSaveChanges;
 
             win.Show();
         }

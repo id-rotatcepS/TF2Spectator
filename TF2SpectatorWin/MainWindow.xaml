@@ -63,6 +63,13 @@
                     </StackPanel>
                 </Expander.Header>
                 <StackPanel>
+                    <Label Content="TF2 path:"/>
+                    <TextBox x:Name="tf2" HorizontalAlignment="Stretch" Height="23"  TextWrapping="Wrap" VerticalAlignment="Top" MinWidth="400"
+                             Text="{Binding TF2Path}"
+                             ToolTip="Path to the steamapps\common\Team Fortress 2 - this button launches tf_win64.exe from there with special settings"/>
+
+                    <Separator />
+
                     <StackPanel Orientation="Horizontal">
 
                         <Label Content="Rcon Password:" ToolTip="set to anything if launching TF2 from here"/>
@@ -74,8 +81,28 @@
                          Text="{Binding RconPort}"/>
 
                     </StackPanel>
-                    <Separator />
-                    <Label Content="(as of April 18, 2024 tf2 bot detector does not work with 64bit TF2 unless it gets an update)"/>
+                    <Separator/>
+                    <StackPanel Orientation="Horizontal">
+
+                        <Button x:Name="start" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" MinWidth="75"
+                            Content="(Launch TF2)" Command="{Binding LaunchCommand}"
+                            ToolTip="Starts TF2 using these settings - DON'T Click if using tf2_bot_detector, instead set the TF2BD logs folder to share its settings"/>
+                        <Label Content="▶ from TF2 path"/>
+
+                    </StackPanel>
+                    <TextBlock Padding="5,0" FontStyle="Italic" Text="... or ..."/>
+                    <TextBlock Padding="5,0" Text="Add the following to your TF2 Launch Options:"/>
+                    <Label Padding="20,0" FontWeight="Bold"
+                           Content="-usercon"/>
+                    <TextBlock Padding="5,0" Text="THEN Invoke the Rcon config file from the 64bit TF2 Console (setting Rcon values creates the config file in the TF2 path):"/>
+                    <Label Padding="20,0" FontWeight="Bold"
+                           Content="{Binding RconConfigFileBase,FallbackValue=TF2SpectatorRCON}"
+                           ContentStringFormat="exec {0}"/>
+                    <TextBlock Padding="5,0" Text="Or just add that exec command to your autoexec.cfg to automatically run it on startup."/>
+                    <!-- TODO BUTTON to add line to autoexec.cfg if it's not already in there -->
+                    <TextBlock Padding="5,0" FontStyle="Italic" Text="... or ..."/>
+                    <TextBlock Padding="5,0" Text="Share Rcon with pazer's tf2_bot_detector"/>
+                    <TextBlock Padding="5,0" FontStyle="Italic" Text="(as of April 18, 2024 tf2 bot detector does not work with 64bit TF2 unless it gets an update)"/>
                     <StackPanel Orientation="Horizontal">
                         <Label Content="tf2 bot detector logs:" ToolTip="Auto-fills Rcon if you run tf2_bot_detector"/>
                         <TextBox x:Name="tbdlogs" Height="23" VerticalAlignment="Top" HorizontalAlignment="Stretch"  MinWidth="400"
@@ -91,27 +118,6 @@
                             ToolTip="Restarting TF2 without restarting tf2_bot_detector requires a re-scan to get the new values"/>
 
                     </StackPanel>
-                    <Label Content="... or ..."/>
-                    <StackPanel Orientation="Horizontal">
-
-                        <Button x:Name="start" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" MinWidth="75"
-                            Content="(Launch TF2)" Command="{Binding LaunchCommand}"
-                            ToolTip="Starts TF2 using these settings - DON'T Click if using tf2_bot_detector, instead set the TF2BD logs folder to share its settings"/>
-                        <Label Content="▶ from TF2 path:"/>
-                        <TextBox x:Name="tf2" HorizontalAlignment="Stretch" Height="23"  TextWrapping="Wrap" VerticalAlignment="Top" MinWidth="400"
-                             Text="{Binding TF2Path}"
-                             ToolTip="Path to the steamapps\common\Team Fortress 2 - this button launches tf_win64.exe from there with special settings"/>
-
-                    </StackPanel>
-                    <Label Content="... or ..."/>
-                    <Label Content="Add the following entry to your TF2 Launch Options:"/>
-                    <Label Padding="20,0" FontWeight="Bold"
-                           Content="-usercon"/>
-                    <Label Content="... THEN ..."/>
-                    <Label Content="Setting Rcon values creates a config file (using the above TF2 path) that you must invoke from the 64bit TF2 Console:"/>
-                    <Label Padding="20,0" FontWeight="Bold"
-                           Content="{Binding RconConfigFileBase,FallbackValue=TF2SpectatorRCON}" ContentStringFormat="exec {0}"/>
-                    <Label Content="Or just add that exec command to your autoexec.cfg to automatically run it on startup."/>
 
                     <!--
                     <Label Content="If you use a custom tf2 launch options, you can just add the following entries to your Launch Options:"/>
@@ -163,108 +169,26 @@
                 </StackPanel>
             </Expander>
 
-            <Expander IsExpanded="False" DataContext="{Binding LobbyTrackerModel}" Background="{Binding TeamColor}">
+            <Expander IsExpanded="False">
                 <Expander.Header>
                     <StackPanel Orientation="Horizontal">
-                        <Label Content="Bot Kicking"/>
-                        <Button x:Name="lobby" HorizontalAlignment="Left" Height="30" VerticalAlignment="Top" 
-                                Command="{Binding LobbyParseCommand}"
-                                ToolTip="Activate automatic bot kicking and related features - mark new bots/cheaters in the list below">
-                            <StackPanel Orientation="Horizontal" Height="28">
-                                <Label Content="Monitor Game Lobby"/>
-                                <CheckBox IsChecked="{Binding IsParsing, Mode=OneWay}" IsEnabled="False"/>
-                            </StackPanel>
-                        </Button>
-                        <!--<Label>My UID:</Label>
-                        <TextBox x:Name="uuid" Text="{Binding SteamUUID,FallbackValue=[U:1:123456]}" 
-                                 Height="20" Width="90" VerticalContentAlignment="Center" />-->
+                        <Label Content="Bot Kicking ☠👎"/>
+                        <Button x:Name="OpenLobby" HorizontalAlignment="Center"
+                                Content="Watch Game Lobby"
+                                Command="{Binding OpenLobbyCommand}"
+                                ToolTip="Activate automatic bot kicking and related features - mark new bots/cheaters in the list below"/>
                     </StackPanel>
                 </Expander.Header>
-                <StackPanel Orientation="Vertical" Background="{Binding TeamColor}">
-                    <StackPanel.Resources>
-                        <Style x:Key="LobbyCell" TargetType="DataGridCell">
-                            <Style.Triggers>
-                                
-                                <DataTrigger Binding="{Binding IsMissing}" Value="True">
-                                    <DataTrigger.Setters>
-                                        <Setter Property="Opacity" Value="0.6"/>
-                                    </DataTrigger.Setters>
-                                </DataTrigger>
-                                
-                                <DataTrigger Binding="{Binding IsBanned}" Value="True">
-                                    <DataTrigger.Setters>
-                                        <Setter Property="Background" Value="Orange"/>
-                                    </DataTrigger.Setters>
-                                </DataTrigger>
-                                
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Resources>
-                    
-                    <StackPanel Orientation="Horizontal">
-                        
-                        <DataGrid ItemsSource="{Binding LobbyBluCollection}" x:Name="BluLobby"
-                                  Width="340" Height="280" Background="{Binding BluTeamColor}" BorderBrush="DarkBlue" BorderThickness="3"
-                                  AutoGenerateColumns="False" IsReadOnly="True"
-                                  GotFocus="BluLobby_GotFocus" IsSynchronizedWithCurrentItem="False"
-                                  CurrentItem="{Binding LobbyBluCurrent}"
-                                  SelectedItem="{Binding LobbyBluSelected}" SelectionMode="Single"
-                                  CellStyle="{StaticResource LobbyCell}">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Binding="{Binding TextIcon}" Header="Bot" Width="40"/>
-                                <DataGridTextColumn Binding="{Binding StatusName}" Header="Name" MaxWidth="150"/>
-                                <DataGridTextColumn Binding="{Binding TextTime}" Header="Time" Width="35"
-                                                    SortMemberPath="{Binding StatusConnectedSeconds}"
-                                                    SortDirection="Ascending"/>
-                                <DataGridTextColumn Binding="{Binding StatusPing}" Header="Ping" Width="35"/>
-                                <DataGridTextColumn Binding="{Binding StatusState}" Header="State" Width="60"/>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                        
-                        <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                            <Button Command="{Binding MarkBotCommand}" HorizontalAlignment="Stretch" Height="80"
-                                    ToolTip="Marks the single selection out of the two team lists as a cheater/bot account">
-                                <StackPanel Orientation="Vertical">
-                                    <Label HorizontalAlignment="Center" Content="Mark Bot"/>
-                                    <Label HorizontalAlignment="Center" Content="👎"/>
-                                </StackPanel>
-                            </Button>
-                            <Separator/>
-                            <Button Content="Unmark" Command="{Binding MarkNotBotCommand}" HorizontalAlignment="Stretch" Height="40"/>
-                            <Separator/>
-                            <Button Command="{Binding MarkMeCommand}" HorizontalAlignment="Stretch" Height="20"
-                                    Content="{Binding MeLabel, FallbackValue=Mark Me}"/>
-                            <Separator/>
-                            <Button Command="{Binding MarkFriendCommand}" HorizontalAlignment="Stretch" Height="80"
-                                    ToolTip="Prevent kicking - the single selection out of the two team lists marked as a friend/human account">
-                                <StackPanel Orientation="Vertical">
-                                    <Label HorizontalAlignment="Center" Content="No Kick"/>
-                                    <Label HorizontalAlignment="Center" Content="💚"/>
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-                        
-                        <DataGrid ItemsSource="{Binding LobbyRedCollection}" x:Name="RedLobby"
-                                  Width="340" Height="280" Background="{Binding RedTeamColor}" BorderBrush="DarkRed" BorderThickness="3"
-                                  AutoGenerateColumns="False" IsReadOnly="True"
-                                  GotFocus="RedLobby_GotFocus" IsSynchronizedWithCurrentItem="False"
-                                  CurrentItem="{Binding LobbyRedCurrent}"
-                                  SelectedItem="{Binding LobbyRedSelected}" SelectionMode="Single"
-                                  CellStyle="{StaticResource LobbyCell}">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Binding="{Binding TextIcon}" Header="Bot" Width="40"/>
-                                <DataGridTextColumn Binding="{Binding StatusName}" Header="Name" MaxWidth="150"/>
-                                <DataGridTextColumn Binding="{Binding TextTime}" Header="Time" Width="35"
-                                                    SortMemberPath="{Binding StatusConnectedSeconds}"
-                                                    SortDirection="Ascending"/>
-                                <DataGridTextColumn Binding="{Binding StatusPing}" Header="Ping" Width="35"/>
-                                <DataGridTextColumn Binding="{Binding StatusState}" Header="State" Width="60"/>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                        
-                    </StackPanel>
-                    <TextBlock>🔇 Muted is only from the LAST time TF2 was run, not any changes during this time. And only the last 256 mutes.</TextBlock>
-                    <TextBlock>Team Color is always backwards after the teams are switched in round 2.</TextBlock>
+                <StackPanel Orientation="Vertical">
+                    <TextBlock Padding="5,0" Text="Requires a good TF2 Rcon connection and a configured TF2 Path."/>
+                    <TextBlock Padding="5,0" HorizontalAlignment="Center" FontStyle="Italic"
+                               Text="(future bot kicking configuration will be added here)"/>
+                    <!-- TODO
+                    button to install "vote eraser" HUD mod from pazer's repo
+                    config mark/unmark bind keys
+                    config suggestion message(s)
+                    Toggle mute & repeat name suggestions..and fuzziness? (twitch name suggestions always on - just disable the command in commands)
+                    -->
                 </StackPanel>
             </Expander>
             

@@ -124,7 +124,7 @@ namespace TF2FrameworkInterface
                 return true;
 
             // possible bot - more expensive test.
-            bool isSimilarNameToBot = IsNameForIDSimilarToABotName(steamUniqueID);
+            bool isSimilarNameToBot = IsNameForIDSimilarToARepeatedBotName(steamUniqueID);
             if (isSimilarNameToBot)
                 return true;
 
@@ -147,17 +147,18 @@ namespace TF2FrameworkInterface
             return SuggestedNames.Any(name => BotEx(name) == subjectBotEx);
         }
 
-        private bool IsNameForIDSimilarToABotName(string steamUniqueID)
+        private bool IsNameForIDSimilarToARepeatedBotName(string steamUniqueID)
         {
             string subjectName = Players.FirstOrDefault(p => p.SteamID == steamUniqueID)?.StatusName;
             if (subjectName == null)
                 return false;
 
-            return IsSimilarToBotName(subjectName);
+            return IsSimilarToRepeatedBotName(subjectName);
         }
 
-        private bool IsSimilarToBotName(string subjectName)
+        private bool IsSimilarToRepeatedBotName(string subjectName)
         {
+            const int minimumRepeats = 2;
             if (subjectName == null)
                 return false;
 
@@ -165,9 +166,9 @@ namespace TF2FrameworkInterface
             if (IsNotComparableBotEx(playerBotExName))
                 return false;
 
-           // TODO simulatneous modification failure here
+            // TODO got a simulatneous modification failure here
             // assume one of the known bot names is the shortest version - allow new potential to have added text (like a hashtag)
-            return Banned.GetCheaterNames().Any(name =>
+            return Banned.GetCheaterNames().Count(name =>
             {
                 string botName = BotEx(name);
                 if (IsNotComparableBotEx(botName))
@@ -175,14 +176,14 @@ namespace TF2FrameworkInterface
 
                 // currently this would not catch twitter/myg0t without changing this to "contains"
                 // but that risks more false positives like "I love my GTO car" (mygt in the middle)
-                
-                // too many false positives: ("calico" and "ziggy" are sub names immediately found in regular longer-named players)
+
+                // concerned for false positives: ("calico" and "ziggy" are sub names immediately found in regular longer-named players)
+                // maybe worthwhile with the right minimum count.
                 //bool result = playerBotExName.StartsWith(botName);
                 bool result = playerBotExName.Equals(botName);
-                if (result)
-                    return true;
-                return false;
-            });
+
+                return result;
+            }) >= minimumRepeats;
         }
 
         private bool IsNotComparableBotEx(string botExName)
