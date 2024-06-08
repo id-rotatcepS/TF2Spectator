@@ -69,12 +69,15 @@ namespace TF2FrameworkInterface
             //regardless same bot UID may match to new map as us but kick game id number definitely changes then.
             //reset kick numbers if server changes
             //TODO could we add a sanity check of duplicate kick IDs before using?
-            foreach (Bot p in Bots)
-            {
-                // leave the name for aesthetics
-                p.GameID = null;
-                p.Status = null;
-            }
+
+            // was causing stack overflow?
+            //if (Bots != null)
+            //    foreach (Bot p in Bots)
+            //    {
+            //        // leave the name for aesthetics
+            //        p.GameID = null;
+            //        p.Status = null;
+            //    }
         }
 
         public delegate void GameLobbyEvent(BotHandling source);

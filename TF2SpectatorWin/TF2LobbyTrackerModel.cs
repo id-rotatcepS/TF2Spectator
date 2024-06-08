@@ -447,11 +447,11 @@ namespace TF2SpectatorWin
             cancellationTokenSource = new CancellationTokenSource();
             ViewNotification(nameof(IsParsing));
 
-            // every 2 seconds we get-lobby, load-detail, check for bots.
+            // every {delay} seconds we get-lobby, load-detail, check for bots.
             // every get-lobby we also generate event that requests view refresh of red & blue lists
             // Get of those lists does RefreshPlayers - based on latest lobby info
 
-            int delay = 2000;
+            int delay = 1500;
             CancellationToken cancellationToken = cancellationTokenSource.Token;
             var listener = Task.Factory.StartNew(() =>
             {
