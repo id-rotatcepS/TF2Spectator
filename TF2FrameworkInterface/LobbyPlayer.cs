@@ -19,6 +19,15 @@ namespace TF2FrameworkInterface
             this.status = status;
         }
 
+        /// <summary>
+        /// Externally set Lobby-level flag
+        /// </summary>
+        public bool IsKicking { get; set; } = false;
+        /// <summary>
+        /// Externally set Lobby-level flag
+        /// </summary>
+        public bool IsMarking { get; set; } = false;
+
         private bool isMuted;
         public bool IsMuted
         {

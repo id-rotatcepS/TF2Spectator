@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading;
 
 namespace TF2FrameworkInterface
 {
@@ -56,11 +55,26 @@ namespace TF2FrameworkInterface
                
                 GameLobbyUpdated?.DynamicInvoke(this); 
             };
+            Lobby.LobbyServerChanged += ResetBotServerKickInfo;
 
             ServerDetail = new StatusCommandLogOutput(TF2, config.TF2Path);
             //ServerDetail.StatusUpdated += (s) => GameLobbyUpdated?.DynamicInvoke(this);
             
             RefreshBotList();
+        }
+
+        private void ResetBotServerKickInfo(TFDebugLobbyCommandOutput source)
+        {
+            //CONCERN: does votekick number change on map change?
+            //regardless same bot UID may match to new map as us but kick game id number definitely changes then.
+            //reset kick numbers if server changes
+            //TODO could we add a sanity check of duplicate kick IDs before using?
+            foreach (Bot p in Bots)
+            {
+                // leave the name for aesthetics
+                p.GameID = null;
+                p.Status = null;
+            }
         }
 
         public delegate void GameLobbyEvent(BotHandling source);
@@ -253,6 +267,7 @@ namespace TF2FrameworkInterface
                 ));
 
         private KickInteraction Kicking { get; set; }
+        private KickInteraction Marking { get; set; }
 
         public void RefreshPlayers()
         {
@@ -285,6 +300,9 @@ namespace TF2FrameworkInterface
                     p.IsFriend = IsFriendID(p.SteamID);
                     p.IsMe = MySteamUniqueID == p.SteamID;
                     p.IsMuted = IsMutedID(p.SteamID);
+
+                    p.IsKicking = Kicking?.Target?.SteamUniqueID == p.SteamID;
+                    p.IsMarking = Marking?.Target?.SteamUniqueID == p.SteamID;
                 }
             }
 
@@ -295,6 +313,10 @@ namespace TF2FrameworkInterface
                 IsFriend = IsFriendID(l.SteamUniqueID),
                 IsMe = MySteamUniqueID == l.SteamUniqueID,
                 IsMuted = IsMutedID(l.SteamUniqueID),
+
+                // shouldn't be targeted yet if it's new
+                //IsKicking = Kicking?.Target?.SteamUniqueID == l.SteamUniqueID,
+                //IsMarking = Marking?.Target?.SteamUniqueID == l.SteamUniqueID,
             });
             if (_Players == null)
                 _Players = new ObservableCollection<LobbyPlayer>(newThings);
@@ -337,33 +359,32 @@ namespace TF2FrameworkInterface
 
         public void Next()
         {
+            NextKick();
+            NextMark();
+        }
+
+        private void NextKick()
+        {
             if (Kicking != null && Kicking.IsBusy)
             {
                 Kicking.Next();
                 return;
             }
 
-            //cancelled = false;
-            Bot bot = GetNextKickableBot();
-            if (bot != null)
-                Kicking = new KickInteraction(bot, this);
-            else
-            {
-                // maybe there is somebody on the OTHER team worth marking at least.
-                bot = GetNextMarkableBot();
-                if (bot == null)
-                    return;
-                Kicking = new MarkInteraction(bot, this);
-            }
+            //    //cancelled = false;
+            Bot bot = GetNextKickableBotBannedOnMyTeam();
+            if (bot == null)
+                return; // no action if banned is on other team.
 
+            Kicking = new KickInteraction(bot, this);
             Kicking.Begin();
         }
 
-        private Bot GetNextKickableBot()
+        private Bot GetNextKickableBotBannedOnMyTeam()
         {
             string myTeam = MyTeam;
             return GetMarkableBots()
-                .Where(b => b.Team == myTeam)
+                .Where(b => b.Team == myTeam && b.IsBanned)
                 .FirstOrDefault();
         }
 
@@ -374,15 +395,51 @@ namespace TF2FrameworkInterface
             return Bots.Where(b
                 => !SkippedList.Contains(b.SteamUniqueID)
                 && !string.IsNullOrEmpty(b.GameID)
-                //&& VotingOnThisBot?.GameID != b.GameID // TODO can I remove this now thanks to SkippedList?
                 );
+        }
+
+
+
+        private void NextMark()
+        {
+            if (Marking != null && Marking.IsBusy)
+            {
+                Marking.Next();
+                return;
+            }
+
+            //    //cancelled = false;
+            // prefer marking my team first to get the kicks going
+            Bot bot = GetNextMarkableBotNotBannedOnMyTeam();
+            if (bot != null)
+            {
+                Marking = new KickInteraction(bot, this); // we offer it as a "kick" but the actual kicking starts later.
+                Marking.Begin();
+            }
+            else
+            {
+                bot = GetNextMarkableBotNotBannedOtherTeam();
+                if (bot == null)
+                    return;
+
+                Marking = new MarkInteraction(bot, this);
+                Marking.Begin();
+            }
+        }
+
+        private Bot GetNextMarkableBotNotBannedOnMyTeam()
+        {
+            string myTeam = MyTeam;
+            return GetMarkableBots()
+                .Where(b => b.Team == myTeam && !b.IsBanned)
+                .FirstOrDefault();
         }
 
         /// <summary>
         /// a selection from the (potential) bots on the other team that aren't already banned
         /// </summary>
         /// <returns></returns>
-        private Bot GetNextMarkableBot()
+        private Bot GetNextMarkableBotNotBannedOtherTeam()
         {
             string myTeam = MyTeam;
             return GetMarkableBots()
@@ -534,10 +591,7 @@ namespace TF2FrameworkInterface
 
         protected override string GetOfferKickTextAlert(string kickkey, string skipkey)
         {
-            if (handler.IsSimilarToSuggestedName(VotingOnThisBot.Name))
-                return $"say_party twitch chat thinks '{VotingOnThisBot.Name}' is a bot    - deciding if I will mark ('{kickkey}') or not ('{skipkey}')";
-            else
-                return $"say_party '{VotingOnThisBot.Name}' named or muted like a past bot    - deciding if I will mark ('{kickkey}') or not ('{skipkey}')";
+            return GetOfferKickTextAlert(kickkey, skipkey, "mark");
         }
 
         protected override void SetupAwaitKick()
@@ -548,6 +602,7 @@ namespace TF2FrameworkInterface
 
     internal class KickInteraction
     {
+        public Bot Target => VotingOnThisBot;
         protected Bot VotingOnThisBot;
         protected readonly BotHandling handler;
 
@@ -646,7 +701,15 @@ namespace TF2FrameworkInterface
 
         protected virtual string GetOfferKickTextAlert(string kickkey, string skipkey)
         {
-            return $"say_party '{VotingOnThisBot.Name}' named or muted like a past bot    - deciding if I will kick ('{kickkey}') or not ('{skipkey}')";
+            return GetOfferKickTextAlert(kickkey, skipkey, "kick");
+        }
+
+        protected string GetOfferKickTextAlert(string kickkey, string skipkey, string kickOrMark)
+        {
+            if (handler.IsSimilarToSuggestedName(VotingOnThisBot.Name))
+                return $"say_party twitch chat thinks '{VotingOnThisBot.Name}' is a bot    - deciding if I will {kickOrMark} ('{kickkey}') or not ('{skipkey}')";
+            else
+                return $"say_party '{VotingOnThisBot.Name}' named or muted like a past bot    - deciding if I will {kickOrMark} ('{kickkey}') or not ('{skipkey}')";
         }
 
         private const string kick_response_variable = "tf2spec_kick_response";
@@ -767,8 +830,10 @@ namespace TF2FrameworkInterface
         {
             //TODO event handler instead
             handler.ChoseToKickBot(VotingOnThisBot);
-            // we await the bot vanishing, and keep trying to kick until then.
-            SetupAwaitKick();
+
+            // setting up actual kick is the job of a normal Kick cycle - if the user was choosing we're in a mark cycle
+            // ...kick will start in like 2 seconds if one isn't already in progress.
+            _ = DoneKicking();
         }
 
         private void ChoseToSkip()

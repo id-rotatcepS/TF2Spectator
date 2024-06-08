@@ -23,6 +23,17 @@
                         </DataTrigger.Setters>
                     </DataTrigger>
 
+                    <DataTrigger Binding="{Binding IsMarking}" Value="True">
+                        <DataTrigger.Setters>
+                            <Setter Property="Background" Value="Yellow"/>
+                        </DataTrigger.Setters>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding IsKicking}" Value="True">
+                        <DataTrigger.Setters>
+                            <Setter Property="Background" Value="Red"/>
+                        </DataTrigger.Setters>
+                    </DataTrigger>
+
                 </Style.Triggers>
             </Style>
         </StackPanel.Resources>
