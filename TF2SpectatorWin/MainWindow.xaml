@@ -183,8 +183,11 @@
                     <TextBlock Padding="5,0" Text="Requires a good TF2 Rcon connection and a configured TF2 Path."/>
                     <TextBlock Padding="5,0" HorizontalAlignment="Center" FontStyle="Italic"
                                Text="(future bot kicking configuration will be added here)"/>
+                    <TextBlock Padding="5,0" Text="Optionally install 'Vote Eraser' from pazer's system to silence and hide failed vote attempts:"/>
+                    <Button x:Name="InstallVoteEraser" HorizontalAlignment="Center"
+                            Content="Install Vote Eraser"
+                            Command="{Binding InstallVoteEraserCommand}"/>
                     <!-- TODO
-                    button to install "vote eraser" HUD mod from pazer's repo
                     config mark/unmark bind keys
                     config suggestion message(s)
                     Toggle mute & repeat name suggestions..and fuzziness? (twitch name suggestions always on - just disable the command in commands)

@@ -4,6 +4,8 @@ using AspenWin;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -90,37 +92,81 @@ namespace TF2SpectatorWin
             this.tF2WindowsViewModel = tF2WindowsViewModel;
         }
 
+        private ICommand _InstallVoteEraser;
+        public ICommand InstallVoteEraserCommand => _InstallVoteEraser
+            ?? (_InstallVoteEraser = new RelayCommand<object>(
+                (o) => InstallVoteEraser(),
+                (o) => !IsVoteEraserInstalled()));
+
+        private string TF2CustomHudsPath => Path.Combine(tF2WindowsViewModel.TF2Path, @"tf\custom\");
+        private string HudFolderName = "aaaaaaaaaa_votefailed_eraser_v2";
+
         private void InstallVoteEraser()
         {
-            UseCursor(Cursors.Wait, () =>
+            UseOverrideCursor(Cursors.Wait, () =>
             {
-                //string path = "master.zip";
-                //TF2BDFiles.CopyURLToFile("https://github.com/PazerOP/tf2_bot_detector/archive/refs/heads/master.zip", path);
-                //ZipFile zip = ZipFile.OpenRead(path);
+                string path = Path.Combine(Path.GetTempPath(), "master.zip");
 
-                //ZipPackage zip = ZipPackage.Open(path) as ZipPackage;
-                //Uri hudPart = new Uri(@"tf2_bot_detector-master\staging\tf2_addons\aaaaaaaaaa_votefailed_eraser_v2", UriKind.Relative);
-                //if (zip.PartExists(hudPart))
-                //{
-                //    PackagePart hud = zip.GetPart(hudPart);
-                //    hud.GetStream();
-                //}
+                TF2BDFiles.CopyURLToFile("https://github.com/PazerOP/tf2_bot_detector/archive/refs/heads/master.zip", path);
+                string addonsArchivePath = @"tf2_bot_detector-master/staging/tf2_addons/";
 
+                ExtractZipSubfolder(path, addonsArchivePath, TF2CustomHudsPath);
+
+                File.Delete(path);
             });
         }
 
-        private static void UseCursor(Cursor cur, Action action)
+        /// <summary>
+        /// Opens a ZipFile and extracts a folder in it to a destionation folder.
+        /// </summary>
+        /// <param name="path">zip file to open</param>
+        /// <param name="sourcePath">zip folder prefix path to extract. Must use forward slashes to match <see cref="ZipArchiveEntry.FullName"/></param>
+        /// <param name="destPath">folder in which to extract zip folder contents</param>
+        public static void ExtractZipSubfolder(string path, string sourcePath, string destPath)
+        {
+            using (ZipArchive zip = ZipFile.OpenRead(path))
+                foreach (ZipArchiveEntry entry in zip.Entries)
+                    ExtractZipSubfolder(entry, sourcePath, destPath);
+        }
+
+        private static void ExtractZipSubfolder(ZipArchiveEntry entry, string sourcePath, string destPath)
+        {
+            if (!entry.FullName.StartsWith(sourcePath))
+                return;
+
+            string addOnRelative = entry.FullName.Substring(sourcePath.Length);
+            string extractFullPath = Path.Combine(destPath, addOnRelative);
+
+            bool isDirectory = string.IsNullOrEmpty(entry.Name);
+            if (isDirectory)
+                Directory.CreateDirectory(extractFullPath);
+            else
+                entry.ExtractToFile(extractFullPath);
+        }
+
+        private bool IsVoteEraserInstalled()
+        {
+            string modPath = Path.Combine(TF2CustomHudsPath, HudFolderName);
+            return Directory.Exists(modPath);
+        }
+
+        /// <summary>
+        /// set Mouse.OverrideCursor during the action.
+        /// </summary>
+        /// <param name="cur">a cursor from <see cref="Cursors"/></param>
+        /// <param name="action"></param>
+        public static void UseOverrideCursor(Cursor cur, Action action)
         {
             Cursor previous = Mouse.OverrideCursor;
             try
             {
-                Mouse.SetCursor(cur);
+                Mouse.OverrideCursor = cur;
 
                 action?.Invoke();
             }
             finally
             {
-                Mouse.SetCursor(previous);
+                Mouse.OverrideCursor = previous;
             }
         }
 

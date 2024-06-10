@@ -121,6 +121,7 @@ namespace TF2SpectatorWin
 
         public TF2LobbyTrackerModel LobbyTrackerModel { get; set; }
         public ICommand OpenLobbyCommand => LobbyTrackerModel.OpenLobbyCommand;
+        public ICommand InstallVoteEraserCommand => LobbyTrackerModel.InstallVoteEraserCommand;
         public void SuggestLobbyBotName(string botName) => LobbyTrackerModel?.AddTwitchBotSuggestion(botName);
         public string GetLobbyBots() => LobbyTrackerModel?.GetBotInformation();
 
@@ -261,6 +262,9 @@ namespace TF2SpectatorWin
             }
         }
 
+        /// <summary>
+        /// ...\steamapps\common\Team Fortress 2
+        /// </summary>
         public string TF2Path
         {
             get => Option.Get<string>(nameof(TF2Path));
