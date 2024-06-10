@@ -256,7 +256,7 @@ namespace TF2SpectatorWin
             return IsParsing
                 && _BotHandler != null
                 && _BotHandler.MyTeam == null
-                && _BotHandler.Players.Any();
+                && GetLobbySelected() != null;
         }
 
 
