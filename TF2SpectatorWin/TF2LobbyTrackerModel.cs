@@ -1,5 +1,6 @@
 ﻿using ASPEN;
 using AspenWin;
+
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -9,6 +10,7 @@ using System.Threading.Tasks;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+
 using TF2FrameworkInterface;
 
 namespace TF2SpectatorWin
@@ -295,38 +297,48 @@ namespace TF2SpectatorWin
             LobbyPlayer selection = GetLobbySelected();
             if (selection == null)
                 return;
-            //Aspen.Show?.QuestionToContinue("Kick {0} as a Cheater/Bot?", 
-            //    () =>
-            // next pass will see this as a banned bot and immediately start the kick (if it's the next entry).
+
             _BotHandler.RecordAsABot(selection);
-            //,
-            //selection.StatusName);
         }
 
-        private ICommand _MarkNotBotCommand;
-        public ICommand MarkNotBotCommand => _MarkNotBotCommand
-            ?? (_MarkNotBotCommand = new RelayCommand<object>(
-                execute: (o) => MarkSelectionNotABot(),
-                canExecute: (o) => (LobbyRedSelected ?? LobbyBluSelected)?.IsUserBanned ?? false));
-        private void MarkSelectionNotABot()
+        private ICommand _UnmarkCommand;
+        public ICommand UnmarkSelectionCommand => _UnmarkCommand
+            ?? (_UnmarkCommand = new RelayCommand<object>(
+                execute: (o) => UnmarkSelection(),
+                canExecute: (o) => CanUnmark()));
+
+        private void UnmarkSelection()
         {
             if (!IsParsing)
                 return;
             if (_BotHandler == null)
                 return;
 
-            LobbyPlayer selection = LobbyRedSelected ?? LobbyBluSelected;
+            LobbyPlayer selection = GetLobbySelected();
             if (selection == null)
                 return;
 
-            _BotHandler.UnRecordAsABot(selection);
+            if (selection.IsUserBanned)
+                _BotHandler.UnRecordAsABot(selection);
+            if (selection.IsFriend)
+                _BotHandler.UnRecordAsAFriend(selection);
+        }
+
+        private bool CanUnmark()
+        {
+            LobbyPlayer selection = GetLobbySelected();
+            if (selection == null)
+                return false;
+
+            return selection.IsUserBanned
+                || selection.IsFriend;
         }
 
         private ICommand _MarkFriendCommand;
         public ICommand MarkFriendCommand => _MarkFriendCommand
             ?? (_MarkFriendCommand = new RelayCommand<object>(
                 execute: (o) => MarkSelectionAsFriend(),
-                canExecute: (o) => !((LobbyRedSelected ?? LobbyBluSelected)?.IsFriend ?? true)));
+                canExecute: (o) => CanMarkFriend()));
 
         private void MarkSelectionAsFriend()
         {
@@ -338,21 +350,19 @@ namespace TF2SpectatorWin
             LobbyPlayer selection = GetLobbySelected();
             if (selection == null)
                 return;
-            //Aspen.Show.QuestionToContinue("Mark {0} as trusted?",
-            //    () =>
-            // next pass will see this as a banned bot and immediately start the kick (if it's the next entry).
+
             _BotHandler.RecordAsAFriend(selection);
-            //,
-            //selection.StatusName);
         }
 
-        //public IEnumerable<LobbyPlayer> LobbyRedPlayers => LobbyPlayers.Where(p => p.IsRED);
+        private bool CanMarkFriend()
+        {
+            LobbyPlayer selected = GetLobbySelected();
+            if (selected == null)
+                return false;
 
-        //private IOrderedEnumerable<LobbyPlayer> LobbyPlayers
-        //    => BotHandler.Players
-        //    .OrderBy(p => p.StatusConnectedSeconds);
+            return !selected.IsFriend;
+        }
 
-        //public IEnumerable<LobbyPlayer> LobbyBluPlayers => LobbyPlayers.Where(p => p.IsBLU);
 
         public Brush RedTeamColor => new SolidColorBrush(Colors.HotPink);
         public LobbyPlayer LobbyRedCurrent { get; set; }
@@ -393,8 +403,7 @@ namespace TF2SpectatorWin
 
         private ICollectionView CreateLobbyViewSorted()
         {
-            //ICollectionView collectionView = CollectionViewSource.GetDefaultView(BotHandler.Players);
-            // get independent instances to filter, not the default all-players viewer.
+            // create independent instances to filter, not the default all-players viewer.
             ICollectionView collectionView = new ListCollectionView(_BotHandler.Players);
             collectionView.SortDescriptions.Add(
                 new SortDescription(nameof(LobbyPlayer.StatusConnectedSeconds),

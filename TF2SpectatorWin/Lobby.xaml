@@ -71,7 +71,7 @@
                     </StackPanel>
                 </Button>
                 <Separator/>
-                <Button Content="Unmark" Command="{Binding MarkNotBotCommand}" HorizontalAlignment="Stretch" Height="40"/>
+                <Button Content="Unmark" Command="{Binding UnmarkSelectionCommand}" HorizontalAlignment="Stretch" Height="40"/>
                 <Separator/>
                 <Button Command="{Binding MarkMeCommand}" HorizontalAlignment="Stretch" Height="20"
                                     Content="{Binding MeLabel, FallbackValue=Mark Me}"/>

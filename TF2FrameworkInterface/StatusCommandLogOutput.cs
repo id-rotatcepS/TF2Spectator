@@ -1,29 +1,11 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.Remoting.Messaging;
 using System.Text.RegularExpressions;
 using System.Threading;
 
 namespace TF2FrameworkInterface
 {
-
-    // tf_debug_lobby (on valve servers) gives regular "who's connected and on what team"
-    // status populates detail of name (cache it) and connection time (extrapolate from it and time gathered) and I guess ping
-    // voiceban populates detail of muted... hopefully updates real time.
-
-    // "rota: you had ____ muted. press zero(0) in 30s to mark as a bot/cheater and kick, semicolon(;) to decline."
-    //   (temporary binds set up to set variables, cleared in 30s)
-
-    // "____ marked as a bot/cheater. press zero(0) to start a vote kick." & play a sound (options turn off the message).
-    // can play sounds from built-in resources - suggested for tf2bd:
-    //play player/cyoa_pda_beep4.wav(cheater joins your team)
-    //play player/cyoa_pda_beep3.wav(cheater joins enemy team)
-    //play replay/rendercomplete.wav(optionally, all cheaters have left)
-
-    //   (temporary bind set up to start kick) - because the constant failed vote hiding thing is a feature I'm not adding.
-    //   (attempt to append UID to voicebans)
-
 
     /// <summary>
     /// This class embodies a Re-usable rcon sequence that will include output via a log file.
@@ -166,15 +148,6 @@ namespace TF2FrameworkInterface
             }
         }
     }
-
-    //internal class LoggedCommand : TF2Command
-    //{
-    //    public LoggedCommand(string command, string logFileName)
-    //    {
-    //        ConsoleString =
-    //            $"con_logfile \"{logFileName}\" ; {command} ; con_logfile \"\";";
-    //    }
-    //}
 
     /// <summary>
     /// Re-usable Log-based command where command is "status" with a filter that only includes lines of user status.

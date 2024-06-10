@@ -563,6 +563,13 @@ namespace TF2FrameworkInterface
             //TODO keep a list of trusted users
         }
 
+        public void UnRecordAsAFriend(LobbyPlayer player)
+        {
+            SkippedList.Remove(player.SteamID);
+            player.IsFriend = false;
+            //TODO store
+        }
+
         internal bool IsBotPresent(Bot votingOnThisBot)
         {
             RefreshBotList();
