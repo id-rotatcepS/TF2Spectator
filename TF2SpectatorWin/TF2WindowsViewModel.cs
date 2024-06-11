@@ -118,9 +118,13 @@ namespace TF2SpectatorWin
         private TF2BotDetectorLogModel botDetectorLogModel;
         public ICommand ParseTBDCommand => botDetectorLogModel.ParseCommand;
 
+
         public TF2LobbyTrackerModel LobbyTrackerModel { get; set; }
+        public ICommand OpenLobbyCommand => LobbyTrackerModel.OpenLobbyCommand;
+        public ICommand InstallVoteEraserCommand => LobbyTrackerModel.InstallVoteEraserCommand;
         public void SuggestLobbyBotName(string botName) => LobbyTrackerModel?.AddTwitchBotSuggestion(botName);
         public string GetLobbyBots() => LobbyTrackerModel?.GetBotInformation();
+
 
         private static TF2Instance _tf2 = null;
 
@@ -258,6 +262,9 @@ namespace TF2SpectatorWin
             }
         }
 
+        /// <summary>
+        /// ...\steamapps\common\Team Fortress 2
+        /// </summary>
         public string TF2Path
         {
             get => Option.Get<string>(nameof(TF2Path));

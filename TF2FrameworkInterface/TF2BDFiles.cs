@@ -31,7 +31,7 @@ namespace TF2FrameworkInterface
             AddFile(filepath);
         }
 
-        private static void CopyURLToFile(string url, string filepath)
+        public static void CopyURLToFile(string url, string filepath)
         {
             using (HttpClient client = new HttpClient())
             using (var s = client.GetStreamAsync(url))

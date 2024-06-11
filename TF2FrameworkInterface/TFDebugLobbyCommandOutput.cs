@@ -32,12 +32,18 @@ CTFLobbyShared: ID:000245b178bebf3b  24 member(s), 0 pending
             Command = "tf_lobby_debug";
             Filter = TF2DebugLobby.Matcher;
         }
-        public string Command { get; set; }
+        private string Command { get; set; }
         private string CommandOutput { get; set; }
 
-        public Regex Filter { get; set; }
+        private Regex Filter { get; set; }
 
         private TF2Instance TF2 { get; }
+
+        public string LobbyID { get; private set; }
+        /// <summary>
+        /// LobbyID was updated, so previous lobby's status is outdated.
+        /// </summary>
+        public event LobbyEvent LobbyServerChanged;
 
         public IEnumerable<TF2DebugLobby> GetNewStatus()
         {
@@ -66,6 +72,8 @@ CTFLobbyShared: ID:000245b178bebf3b  24 member(s), 0 pending
 
             string[] lines = ExtractCommandLines(text);
 
+            UpdateLobbyID(lines);
+
             if (Filter == null)
                 return lines;
 
@@ -73,6 +81,17 @@ CTFLobbyShared: ID:000245b178bebf3b  24 member(s), 0 pending
 
             return filtered;
         }
+
+        private void UpdateLobbyID(string[] lines)
+        {
+            string lobbyHeader = lines.SingleOrDefault(line => TF2DebugLobby.ServerMatcher.IsMatch(line));
+            if (lobbyHeader == null)
+                return;
+
+            LobbyID = TF2DebugLobby.ServerMatcher.Match(lobbyHeader).Groups["serverid"].Value;
+            LobbyServerChanged?.Invoke(this);
+        }
+
         private static string[] ExtractCommandLines(string text)
         {
             return text.Split(new[] { "\r\n" }, System.StringSplitOptions.RemoveEmptyEntries);
@@ -118,6 +137,10 @@ CTFLobbyShared: ID:000245b178bebf3b  24 member(s), 0 pending
             //CTFLobbyShared: ID:000245b178bebf3b  24 member(s), 0 pending
             //  Member[0][U: 1:117773695]  team = TF_GC_TEAM_INVADERS  type = MATCH_PLAYER
             @"^\s*Member\[(?<member>\d+)\]\s+(?<uniqueid>\[U:\d+:\d+\])\s+team\s*=\s*(?<team>\w+)\s+type\s*=\s*(?<type>\w+).*"
+            );
+        public static Regex ServerMatcher => new Regex(
+            //CTFLobbyShared: ID:000245b178bebf3b  24 member(s), 0 pending
+            @"^\s*\w+:\s+ID:(?<serverid>[\da-f]+)\s+(?<count>\d+)\s+member\(s\),\s*(?<pending>\d+)\s*pending.*"
             );
 
         /// <summary>

@@ -1,14 +1,18 @@
 ﻿using ASPEN;
 using AspenWin;
+
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+
 using TF2FrameworkInterface;
 
 namespace TF2SpectatorWin
@@ -88,11 +92,113 @@ namespace TF2SpectatorWin
             this.tF2WindowsViewModel = tF2WindowsViewModel;
         }
 
-        private ICommand _ParseCommand;
-        public ICommand LobbyParseCommand => _ParseCommand
-            ?? (_ParseCommand = new RelayCommand<object>(
-                execute: (o) => ToggleMonitorLobby(),
-                canExecute: (o) => true));
+        private ICommand _InstallVoteEraser;
+        public ICommand InstallVoteEraserCommand => _InstallVoteEraser
+            ?? (_InstallVoteEraser = new RelayCommand<object>(
+                (o) => InstallVoteEraser(),
+                (o) => !IsVoteEraserInstalled()));
+
+        private string TF2CustomHudsPath => Path.Combine(tF2WindowsViewModel.TF2Path, @"tf\custom\");
+        private string HudFolderName = "aaaaaaaaaa_votefailed_eraser_v2";
+
+        private void InstallVoteEraser()
+        {
+            UseOverrideCursor(Cursors.Wait, () =>
+            {
+                string path = Path.Combine(Path.GetTempPath(), "master.zip");
+
+                TF2BDFiles.CopyURLToFile("https://github.com/PazerOP/tf2_bot_detector/archive/refs/heads/master.zip", path);
+                string addonsArchivePath = @"tf2_bot_detector-master/staging/tf2_addons/";
+
+                ExtractZipSubfolder(path, addonsArchivePath, TF2CustomHudsPath);
+
+                File.Delete(path);
+            });
+        }
+
+        /// <summary>
+        /// Opens a ZipFile and extracts a folder in it to a destionation folder.
+        /// </summary>
+        /// <param name="path">zip file to open</param>
+        /// <param name="sourcePath">zip folder prefix path to extract. Must use forward slashes to match <see cref="ZipArchiveEntry.FullName"/></param>
+        /// <param name="destPath">folder in which to extract zip folder contents</param>
+        public static void ExtractZipSubfolder(string path, string sourcePath, string destPath)
+        {
+            using (ZipArchive zip = ZipFile.OpenRead(path))
+                foreach (ZipArchiveEntry entry in zip.Entries)
+                    ExtractZipSubfolder(entry, sourcePath, destPath);
+        }
+
+        private static void ExtractZipSubfolder(ZipArchiveEntry entry, string sourcePath, string destPath)
+        {
+            if (!entry.FullName.StartsWith(sourcePath))
+                return;
+
+            string addOnRelative = entry.FullName.Substring(sourcePath.Length);
+            string extractFullPath = Path.Combine(destPath, addOnRelative);
+
+            bool isDirectory = string.IsNullOrEmpty(entry.Name);
+            if (isDirectory)
+                Directory.CreateDirectory(extractFullPath);
+            else
+                entry.ExtractToFile(extractFullPath);
+        }
+
+        private bool IsVoteEraserInstalled()
+        {
+            string modPath = Path.Combine(TF2CustomHudsPath, HudFolderName);
+            return Directory.Exists(modPath);
+        }
+
+        /// <summary>
+        /// set Mouse.OverrideCursor during the action.
+        /// </summary>
+        /// <param name="cur">a cursor from <see cref="Cursors"/></param>
+        /// <param name="action"></param>
+        public static void UseOverrideCursor(Cursor cur, Action action)
+        {
+            Cursor previous = Mouse.OverrideCursor;
+            try
+            {
+                Mouse.OverrideCursor = cur;
+
+                action?.Invoke();
+            }
+            finally
+            {
+                Mouse.OverrideCursor = previous;
+            }
+        }
+
+        private ICommand _OpenLobby;
+        public ICommand OpenLobbyCommand => _OpenLobby
+            ?? (_OpenLobby = new RelayCommand<object>(
+                (o) => OpenLobby(),
+                (o) => !string.IsNullOrWhiteSpace(tF2WindowsViewModel.TF2Path)));
+
+        private Lobby win;
+        private void OpenLobby()
+        {
+            if (win != null)
+            {
+                win.Activate();
+                return;
+            }
+
+            win = new Lobby
+            {
+                DataContext = this
+            };
+
+            win.Closed += (x, eventArgs) =>
+            {
+                EndMonitorLobby();
+                win = null;
+            };
+
+            StartMonitorLobby();
+            win.Show();
+        }
 
         public Brush TeamColor =>
             IsParsing ? (
@@ -150,7 +256,7 @@ namespace TF2SpectatorWin
             return IsParsing
                 && _BotHandler != null
                 && _BotHandler.MyTeam == null
-                && _BotHandler.Players.Any();
+                && GetLobbySelected() != null;
         }
 
 
@@ -237,38 +343,48 @@ namespace TF2SpectatorWin
             LobbyPlayer selection = GetLobbySelected();
             if (selection == null)
                 return;
-            //Aspen.Show?.QuestionToContinue("Kick {0} as a Cheater/Bot?", 
-            //    () =>
-            // next pass will see this as a banned bot and immediately start the kick (if it's the next entry).
+
             _BotHandler.RecordAsABot(selection);
-            //,
-            //selection.StatusName);
         }
 
-        private ICommand _MarkNotBotCommand;
-        public ICommand MarkNotBotCommand => _MarkNotBotCommand
-            ?? (_MarkNotBotCommand = new RelayCommand<object>(
-                execute: (o) => MarkSelectionNotABot(),
-                canExecute: (o) => (LobbyRedSelected ?? LobbyBluSelected)?.IsUserBanned ?? false));
-        private void MarkSelectionNotABot()
+        private ICommand _UnmarkCommand;
+        public ICommand UnmarkSelectionCommand => _UnmarkCommand
+            ?? (_UnmarkCommand = new RelayCommand<object>(
+                execute: (o) => UnmarkSelection(),
+                canExecute: (o) => CanUnmark()));
+
+        private void UnmarkSelection()
         {
             if (!IsParsing)
                 return;
             if (_BotHandler == null)
                 return;
 
-            LobbyPlayer selection = LobbyRedSelected ?? LobbyBluSelected;
+            LobbyPlayer selection = GetLobbySelected();
             if (selection == null)
                 return;
 
-            _BotHandler.UnRecordAsABot(selection);
+            if (selection.IsUserBanned)
+                _BotHandler.UnRecordAsABot(selection);
+            if (selection.IsFriend)
+                _BotHandler.UnRecordAsAFriend(selection);
+        }
+
+        private bool CanUnmark()
+        {
+            LobbyPlayer selection = GetLobbySelected();
+            if (selection == null)
+                return false;
+
+            return selection.IsUserBanned
+                || selection.IsFriend;
         }
 
         private ICommand _MarkFriendCommand;
         public ICommand MarkFriendCommand => _MarkFriendCommand
             ?? (_MarkFriendCommand = new RelayCommand<object>(
                 execute: (o) => MarkSelectionAsFriend(),
-                canExecute: (o) => !((LobbyRedSelected ?? LobbyBluSelected)?.IsFriend ?? true)));
+                canExecute: (o) => CanMarkFriend()));
 
         private void MarkSelectionAsFriend()
         {
@@ -280,21 +396,19 @@ namespace TF2SpectatorWin
             LobbyPlayer selection = GetLobbySelected();
             if (selection == null)
                 return;
-            //Aspen.Show.QuestionToContinue("Mark {0} as trusted?",
-            //    () =>
-            // next pass will see this as a banned bot and immediately start the kick (if it's the next entry).
+
             _BotHandler.RecordAsAFriend(selection);
-            //,
-            //selection.StatusName);
         }
 
-        //public IEnumerable<LobbyPlayer> LobbyRedPlayers => LobbyPlayers.Where(p => p.IsRED);
+        private bool CanMarkFriend()
+        {
+            LobbyPlayer selected = GetLobbySelected();
+            if (selected == null)
+                return false;
 
-        //private IOrderedEnumerable<LobbyPlayer> LobbyPlayers
-        //    => BotHandler.Players
-        //    .OrderBy(p => p.StatusConnectedSeconds);
+            return !selected.IsFriend;
+        }
 
-        //public IEnumerable<LobbyPlayer> LobbyBluPlayers => LobbyPlayers.Where(p => p.IsBLU);
 
         public Brush RedTeamColor => new SolidColorBrush(Colors.HotPink);
         public LobbyPlayer LobbyRedCurrent { get; set; }
@@ -335,8 +449,7 @@ namespace TF2SpectatorWin
 
         private ICollectionView CreateLobbyViewSorted()
         {
-            //ICollectionView collectionView = CollectionViewSource.GetDefaultView(BotHandler.Players);
-            // get independent instances to filter, not the default all-players viewer.
+            // create independent instances to filter, not the default all-players viewer.
             ICollectionView collectionView = new ListCollectionView(_BotHandler.Players);
             collectionView.SortDescriptions.Add(
                 new SortDescription(nameof(LobbyPlayer.StatusConnectedSeconds),
@@ -371,27 +484,29 @@ namespace TF2SpectatorWin
             return collectionView;
         }
 
-
         private CancellationTokenSource cancellationTokenSource = null;
-        private void ToggleMonitorLobby()
+        private void EndMonitorLobby()
         {
-            if (IsParsing)
-            {
-                cancellationTokenSource.Cancel();
-                ViewNotification(nameof(IsParsing));
-                ViewNotification(nameof(LobbyBluCollection));
-                ViewNotification(nameof(LobbyRedCollection));
+            if (!IsParsing)
                 return;
-            }
+
+            cancellationTokenSource?.Cancel();
+            ViewNotification(nameof(IsParsing));
+            ViewNotification(nameof(LobbyBluCollection));
+            ViewNotification(nameof(LobbyRedCollection));
+        }
+
+        private void StartMonitorLobby()
+        {
             // based on https://stackoverflow.com/questions/23340894/polling-the-right-way
             cancellationTokenSource = new CancellationTokenSource();
             ViewNotification(nameof(IsParsing));
 
-            // every 2 seconds we get-lobby, load-detail, check for bots.
+            // every {delay} seconds we get-lobby, load-detail, check for bots.
             // every get-lobby we also generate event that requests view refresh of red & blue lists
             // Get of those lists does RefreshPlayers - based on latest lobby info
 
-            int delay = 2000;
+            int delay = 1500;
             CancellationToken cancellationToken = cancellationTokenSource.Token;
             var listener = Task.Factory.StartNew(() =>
             {
@@ -411,7 +526,7 @@ namespace TF2SpectatorWin
                 }
                 cancellationTokenSource = null;
                 ViewNotification(nameof(IsParsing));
-            }, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);  
+            }, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
             // the TaskCreationOptions.LongRunning option tells the task-scheduler to not use a normal thread-pool thread
         }
 
