@@ -5,10 +5,17 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TF2SpectatorWin"
         mc:Ignorable="d"
-        Title="Commands" Height="450" Width="800">
+        Title="Commands" Height="450" Width="800"
+        Background="DarkSlateGray">
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="DarkOrange"/>
+        </Style>
+    </Window.Resources>
+    
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="100"/>
+            <RowDefinition Height="115"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
@@ -16,7 +23,8 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="10,0">
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="10,4"
+                    Background="LightGray">
             <TextBlock TextWrapping="Wrap">
                 Names starting with '!' are free chat commands that show up in '!help'. Names where the Command just matches another Name creates an alias.  Redeems must have a Name that matches the full Title or the internal redeem ID.<LineBreak/>
                 {0} in a Command or Response is replaced with the chatter's name<LineBreak/>

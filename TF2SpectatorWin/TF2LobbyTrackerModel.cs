@@ -36,19 +36,36 @@ namespace TF2SpectatorWin
             set => tF2WindowsViewModel.SteamUUID = value;
         }
 
+        public BotHandlingConfig BotConfig { get; } = new BotHandlingConfig()
+        {
+            IsSuggestingMuted = true,
+            MutedMessage = ">I muted player '{0}' in the past - bot?    - deciding if I will {3} ('{1}') or not ('{2}')",
+            IsSuggestingNames = true,
+            NameMessage = ">'{0}' named like past bots    - deciding if I will {3} ('{1}') or not ('{2}')",
+            TwitchSuggestionMessage = ">twitch chat thinks '{0}' is a bot    - deciding if I will {3} ('{1}') or not ('{2}')",
+
+            BotBind = "0",
+            NoKickBind = "SEMICOLON",
+
+            SuggestionSound = TF2Sound.SOUNDS.FirstOrDefault(s => s?.Description.StartsWith("beep 4") ?? false),
+            KickingSound = TF2Sound.SOUNDS.FirstOrDefault(s => s?.Description.StartsWith("harp strum") ?? false),
+        };
+
+        public string[] BINDKEYS => TF2Command.BINDKEYS;
+
+        public TF2Sound[] SOUNDS => TF2Sound.SOUNDS;
+
         private BotHandling CreateBotHandler()
         {
             if (tF2WindowsViewModel.TF2 == null)
                 return null;
             try
             {
+                BotConfig.TF2Path = tF2WindowsViewModel.TF2Path;
+                BotConfig.PlayerlistPath = TF2WindowsViewModel.GetConfigFilePath("playerlist.json");
+                BotConfig.UserID = SteamUUID;
                 BotHandling handler = new BotHandling(tF2WindowsViewModel.TF2,
-                    new BotHandlingConfig
-                    {
-                        TF2Path = tF2WindowsViewModel.TF2Path,
-                        PlayerlistPath = TF2WindowsViewModel.GetConfigFilePath("playerlist.json"),
-                        UserID = SteamUUID,
-                    });
+                    BotConfig);
 
                 handler.GameLobbyUpdated += LobbyUpdate;
 
