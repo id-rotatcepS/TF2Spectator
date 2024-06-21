@@ -1,12 +1,13 @@
-﻿using ASPEN;
-using AspenWin;
-
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Input;
+
+using ASPEN;
+
+using AspenWin;
 
 using TF2FrameworkInterface;
 
@@ -91,9 +92,9 @@ namespace TF2SpectatorWin
             LobbyTrackerModel = new TF2LobbyTrackerModel(this);
         }
 
-        private ASPEN.AspenLogging Log => ASPEN.Aspen.Log;
+        private AspenLogging Log => Aspen.Log;
 
-        private ASPEN.AspenUserSettings Option => ASPEN.Aspen.Option;
+        private AspenUserSettings Option => Aspen.Option;
 
         private void SaveConfig()
         {
@@ -144,7 +145,7 @@ namespace TF2SpectatorWin
                 _tf2 = CreateTF2Instance();
                 // make sure we deal with the connection gone bad
                 _tf2?.SetOnDisconnected(TF2InstanceDisconnected);
-                
+
                 return _tf2;
             }
             finally
@@ -359,7 +360,7 @@ namespace TF2SpectatorWin
         {
             string consoleCommand = obj?.ToString() ?? CommandString;
 
-            SendCommandAndProcessResponse(consoleCommand, 
+            SendCommandAndProcessResponse(consoleCommand,
                 SetOutputString);
         }
 
@@ -418,9 +419,9 @@ namespace TF2SpectatorWin
 
         private bool CanTwitchCommandExecute(object arg)
         {
-            if (IsTwitchConnected) 
+            if (IsTwitchConnected)
                 return true;
-         
+
             return !string.IsNullOrWhiteSpace(TwitchUsername)
                 && TwitchUsername != TF2SpectatorSettings.DefaultUserName;
         }

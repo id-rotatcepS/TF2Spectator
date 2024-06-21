@@ -4,6 +4,8 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.RegularExpressions;
 
+using Newtonsoft.Json;
+
 namespace TF2FrameworkInterface
 {
     public class Bot
@@ -24,8 +26,16 @@ namespace TF2FrameworkInterface
 
     public class BotHandlingConfig
     {
+        // populated just before passing to BotHandling
+        [JsonIgnore]
         public string TF2Path;
+
+        // populated just before passing to BotHandling
+        [JsonIgnore]
         public string PlayerlistPath;
+
+        // populated just before passing to BotHandling
+        [JsonIgnore]
         public string UserID;
 
         public TF2Sound KickingSound { get; set; }
@@ -38,7 +48,7 @@ namespace TF2FrameworkInterface
         public bool IsSuggestingNames { get; set; }
         //'{0}' is similar to other bot names. Press {1} to kick or {2} to not
         public string NameMessage { get; set; }
-        
+
         //Twitch chat ({4}) thinks '{0}' is a bot. Press {1} to kick or {2} to not
         public string TwitchSuggestionMessage { get; set; }
 
@@ -53,7 +63,7 @@ namespace TF2FrameworkInterface
             this.Config = config;
 
             MySteamUniqueID = config.UserID;
-            
+
             Muted = new TF2VoiceBanFile(config.TF2Path);
             Muted.Load();
 
@@ -67,17 +77,17 @@ namespace TF2FrameworkInterface
             Banned.AddURLFile("https://trusted.roto.lol/v1/steamids");
 
             Lobby = new TFDebugLobbyCommandOutput(TF2);
-            Lobby.LobbyUpdated += (l) => {
-                
-                    //RefreshPlayers();
-               
-                GameLobbyUpdated?.DynamicInvoke(this); 
+            Lobby.LobbyUpdated += (l) =>
+            {
+                //RefreshPlayers();
+
+                GameLobbyUpdated?.DynamicInvoke(this);
             };
             Lobby.LobbyServerChanged += ResetBotServerKickInfo;
 
             ServerDetail = new StatusCommandLogOutput(TF2, config.TF2Path);
             //ServerDetail.StatusUpdated += (s) => GameLobbyUpdated?.DynamicInvoke(this);
-            
+
             RefreshBotList();
         }
 
@@ -604,7 +614,7 @@ namespace TF2FrameworkInterface
         internal void BotKickOver(Bot votingOnThisBot)
         {
             //if(!cancelled)
-            
+
             // don't need to do this, we're already in a loop that will do it. Next();
         }
     }

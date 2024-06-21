@@ -1,7 +1,4 @@
-﻿using ASPEN;
-using AspenWin;
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -12,6 +9,10 @@ using System.Threading.Tasks;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+
+using ASPEN;
+
+using AspenWin;
 
 using TF2FrameworkInterface;
 
@@ -36,20 +37,7 @@ namespace TF2SpectatorWin
             set => tF2WindowsViewModel.SteamUUID = value;
         }
 
-        public BotHandlingConfig BotConfig { get; } = new BotHandlingConfig()
-        {
-            IsSuggestingMuted = true,
-            MutedMessage = ">I muted player '{0}' in the past - bot?    - deciding if I will {3} ('{1}') or not ('{2}')",
-            IsSuggestingNames = true,
-            NameMessage = ">'{0}' named like past bots    - deciding if I will {3} ('{1}') or not ('{2}')",
-            TwitchSuggestionMessage = ">twitch chat thinks '{0}' is a bot    - deciding if I will {3} ('{1}') or not ('{2}')",
-
-            BotBind = "0",
-            NoKickBind = "SEMICOLON",
-
-            SuggestionSound = TF2Sound.SOUNDS.FirstOrDefault(s => s?.Description.StartsWith("beep 4") ?? false),
-            KickingSound = TF2Sound.SOUNDS.FirstOrDefault(s => s?.Description.StartsWith("harp strum") ?? false),
-        };
+        public BotHandlingConfig BotConfig => Aspen.Option.Get<BotHandlingConfig>(nameof(BotHandlingConfig));
 
         public string[] BINDKEYS => TF2Command.BINDKEYS;
 

@@ -1,7 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
+
+using Newtonsoft.Json;
+
+using TF2FrameworkInterface;
 
 namespace TF2SpectatorWin
 {
@@ -79,6 +84,9 @@ namespace TF2SpectatorWin
         public readonly static string ConfigFilename = "TF2Spectator.config.txt";
         public readonly static string ConfigFilePath = TF2WindowsViewModel.GetConfigFilePath(ConfigFilename);
 
+        public readonly static string BotHandlingConfigFilename = "BotHandlingConfig.json";
+        public readonly static string BotHandlingConfigFilePath = TF2WindowsViewModel.GetConfigFilePath(BotHandlingConfigFilename);
+
         public TF2SpectatorSettings(TF2WindowsViewModel vm)
         {
             LoadConfig();
@@ -153,6 +161,44 @@ namespace TF2SpectatorWin
 
             options[nameof(TF2WindowsViewModel.TwitchConnectMessage)] = lines.Length > 6 ? lines[6] : DefaultConnectMessage;
             options[nameof(TF2WindowsViewModel.SteamUUID)] = lines.Length > 7 ? lines[7] : "[U:1:123456]";
+
+            LoadBotHandlingConfig();
+        }
+
+        private void LoadBotHandlingConfig()
+        {
+            try
+            {
+                string json = File.ReadAllText(BotHandlingConfigFilePath);
+                options[nameof(BotHandlingConfig)] = JsonConvert.DeserializeObject<BotHandlingConfig>(json);
+                return;
+            }
+            catch (FileNotFoundException)
+            {
+                // expected
+            }
+            catch (Exception ex)
+            {
+                ASPEN.Aspen.Log.ErrorException(ex, "Loading BotHandlingConfig");
+            }
+
+            //TODO deal with versioning updates - deleting a property should be fine. Adding a property will require per-version population of defaults in new fields.
+
+            // default
+            options[nameof(BotHandlingConfig)] = new BotHandlingConfig()
+            {
+                IsSuggestingMuted = true,
+                MutedMessage = ">I muted player '{0}' in the past - bot?    - deciding if I will {3} ('{1}') or not ('{2}')",
+                IsSuggestingNames = true,
+                NameMessage = ">'{0}' name matches past bots    - deciding if I will {3} ('{1}') or not ('{2}')",
+                TwitchSuggestionMessage = ">twitch chat thinks '{0}' is a bot    - deciding if I will {3} ('{1}') or not ('{2}')",
+
+                BotBind = "0",
+                NoKickBind = "SEMICOLON",
+
+                SuggestionSound = TF2Sound.SOUNDS.FirstOrDefault(s => s?.Description.StartsWith("beep 4") ?? false),
+                KickingSound = TF2Sound.SOUNDS.FirstOrDefault(s => s?.Description.StartsWith("harp strum") ?? false),
+            };
         }
 
         internal void SaveConfig()
@@ -178,7 +224,21 @@ namespace TF2SpectatorWin
             {
                 ASPEN.Aspen.Log.ErrorException(ex, "Saving Config");
             }
+
+            SaveBotHandlingConfig();
         }
 
+        private void SaveBotHandlingConfig()
+        {
+            try
+            {
+                string json = JsonConvert.SerializeObject(ASPEN.Aspen.Option.Get<BotHandlingConfig>(nameof(BotHandlingConfig)));
+                File.WriteAllText(BotHandlingConfigFilePath, json);
+            }
+            catch (Exception ex)
+            {
+                ASPEN.Aspen.Log.ErrorException(ex, "Saving BotHandlingConfig");
+            }
+        }
     }
 }
