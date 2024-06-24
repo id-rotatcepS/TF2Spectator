@@ -15,7 +15,7 @@
     
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="115"/>
+            <RowDefinition Height="70"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
@@ -23,18 +23,21 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="10,4"
-                    Background="LightGray">
+        <ScrollViewer Grid.Row="0" Grid.ColumnSpan="2" Margin="10,6"
+                Background="LightGray" VerticalScrollBarVisibility="Visible">
             <TextBlock TextWrapping="Wrap">
-                Names starting with '!' are free chat commands that show up in '!help'. Names where the Command just matches another Name creates an alias.  Redeems must have a Name that matches the full Title or the internal redeem ID.<LineBreak/>
+                Names starting with '!' are free chat commands that show up in '!help'. <LineBreak/>
+                Names where the Command just matches another Name creates an alias.  <LineBreak/>
+                Redeems must have a Name that matches the full Title or the internal redeem ID.<LineBreak/>
                 {0} in a Command or Response is replaced with the chatter's name<LineBreak/>
                 {1} in a Command is replaced with the text typed by the chatter; in the Result it is replaced with the output of the command.<LineBreak/>
                 {<Italic>console_command</Italic>} in a Command or Response runs that <Italic>console_command</Italic> in the <Hyperlink 
                     NavigateUri="https://wiki.teamfortress.com/wiki/List_of_useful_console_commands" RequestNavigate="Hyperlink_RequestNavigate"
                     >TF2 console</Hyperlink> and is replaced with the output of the command.<LineBreak/>
                 {...|<Italic>value</Italic>:<Italic>translation1</Italic>|<Italic>value2</Italic>:<Italic>translation2</Italic>} translates above replacements from each value into each translation.<LineBreak/>
+                {random|<Italic>value1</Italic>|<Italic>value2</Italic>|<Italic>value3</Italic>} select one replacement at random.<LineBreak/>
             </TextBlock>
-        </StackPanel>
+        </ScrollViewer>
     
         <StackPanel Grid.Row="1" Grid.Column="0" 
                     VerticalAlignment="Center">

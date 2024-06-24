@@ -201,10 +201,10 @@
 
                     <TextBlock Padding="10,5,10,0" 
                                TextWrapping="Wrap" TextAlignment="Right" FontStyle="Italic">
-                        Party chat suggestions announce to your whole party but wait for you to press a response key - 
+                        Party chat suggestions go to your whole party and wait for your response key - 
                         {0} is the bot name,
-                        {1} and {2} are the response keys,
-                        {3} is 'mark' if it's on the other team or 'kick' if its on your team<!--,-->
+                        {1} and {2} are response keys,
+                        {3} is 'kick' on your team, 'mark' on the other<!--,-->
                         <!--{4} might be the twitch user name-->
                     </TextBlock>
                     <Grid>
@@ -335,9 +335,19 @@
                     </ToolBar>
 
                     <StackPanel Orientation="Horizontal">
+                        <ComboBox x:Name="TestSound" HorizontalAlignment="Left"
+                                  SelectedIndex="0"
+                                  SelectedValue="{Binding TestSound}"
+                                  ItemsSource="{Binding LobbyTrackerModel.SOUNDS}" DisplayMemberPath="Description"
+                                  />
+                        <Button x:Name="TestSoundCommand" Content="📡Play Sound" HorizontalAlignment="Left" VerticalAlignment="Top" Width="100"
+                          Command="{Binding PlaySoundCommand}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
 
                         <Label Content="console command:"/>
-                        <TextBox x:Name="input" HorizontalAlignment="Left" Height="23" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"
+
+                        <TextBox x:Name="input" HorizontalAlignment="Left" Height="23" TextWrapping="Wrap" VerticalAlignment="Top" Width="250"
                            Text="{Binding CommandString}"/>
                         <Button x:Name="send" Content="📡Send" HorizontalAlignment="Left" VerticalAlignment="Top" Width="75"
                           Command="{Binding SendCommand}"/>

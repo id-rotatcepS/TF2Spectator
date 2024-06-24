@@ -196,8 +196,8 @@ namespace TF2SpectatorWin
                 BotBind = "0",
                 NoKickBind = "SEMICOLON",
 
-                SuggestionSound = TF2Sound.SOUNDS.FirstOrDefault(s => s?.Description.StartsWith("beep 4") ?? false),
-                KickingSound = TF2Sound.SOUNDS.FirstOrDefault(s => s?.Description.StartsWith("harp strum") ?? false),
+                SuggestionSound = TF2Sound.SOUNDS.FirstOrDefault(s => s?.Description.StartsWith("HL warning beep") ?? false),
+                KickingSound = TF2Sound.SOUNDS.FirstOrDefault(s => s?.Description.StartsWith("HL1 'acquired'") ?? false),
             };
         }
 

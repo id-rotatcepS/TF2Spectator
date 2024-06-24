@@ -352,6 +352,21 @@ namespace TF2SpectatorWin
             }
         }
 
+        private ICommand _PlaySoundCommand;
+        public ICommand PlaySoundCommand => _PlaySoundCommand
+            ?? (_PlaySoundCommand = new RelayCommand<object>(PlaySoundExecute,
+                (o) => !string.IsNullOrEmpty(TestSound?.File)));
+
+        private void PlaySoundExecute(object obj)
+        {
+            TF2Sound sound = (obj as TF2Sound) ?? TestSound;
+            if (sound == null) return;
+
+            string consoleCommand = "play " + sound.File;
+            SendCommandAndProcessResponse(consoleCommand,
+                null);
+        }
+
         private ICommand _SendCommand;
         public ICommand SendCommand => _SendCommand
             ?? (_SendCommand = new RelayCommand<object>(SendCommandExecute));
@@ -456,6 +471,8 @@ namespace TF2SpectatorWin
         {
             SaveConfig();
         }
+
+        public TF2Sound TestSound { get; set; }
 
         public string CommandString { get; set; }
         public string OutputString { get; set; }
