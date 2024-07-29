@@ -27,7 +27,7 @@
                 Background="LightGray" VerticalScrollBarVisibility="Visible">
             <TextBlock TextWrapping="Wrap">
                 Names starting with '!' are free chat commands that show up in '!help'. <LineBreak/>
-                Names where the Command just matches another Name creates an alias.  <LineBreak/>
+                Names where the Command just matches another (earlier) Name creates an alias.  <LineBreak/>
                 Redeems must have a Name that matches the full Title or the internal redeem ID.<LineBreak/>
                 {0} in a Command or Response is replaced with the chatter's name<LineBreak/>
                 {1} in a Command is replaced with the text typed by the chatter; in the Result it is replaced with the output of the command.<LineBreak/>

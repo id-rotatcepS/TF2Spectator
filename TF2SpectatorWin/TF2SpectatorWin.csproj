@@ -269,6 +269,7 @@
     </Compile>
     <Compile Include="CommandsEditorModel.cs" />
     <Compile Include="Config.cs" />
+    <Compile Include="SimpleTabulatedData.cs" />
     <Compile Include="CustomCommandFormat.cs" />
     <Compile Include="Lobby.xaml.cs">
       <DependentUpon>Lobby.xaml</DependentUpon>

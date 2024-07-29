@@ -1,10 +1,13 @@
-﻿using AspenWin;
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
+
+using AspenWin;
 
 namespace TF2SpectatorWin
 {
@@ -34,7 +37,7 @@ namespace TF2SpectatorWin
         {
             if (win != null)
             {
-                win.Activate();
+                _ = win.Activate();
                 return;
             }
 
@@ -50,7 +53,7 @@ namespace TF2SpectatorWin
             // I guess this is the modern version of .CellValueChanged and .CellEndEdit
             win.CommandsDataGrid.CellEditEnding += (o, editingEvent) =>
             {
-                if (editingEvent.EditAction == System.Windows.Controls.DataGridEditAction.Commit)
+                if (editingEvent.EditAction == DataGridEditAction.Commit)
                 {
                     CommandDataChanged = true;
                     //b.Row.Item; 
@@ -58,6 +61,9 @@ namespace TF2SpectatorWin
             };
 
             PrepareCommandData(win);
+
+            _ = win.CommandsDataGrid.CommandBindings.Add(new CommandBinding(
+                ApplicationCommands.Paste, OnPasteDataGrid, OnCanPasteDataGrid));
 
             win.Show();
         }
@@ -87,7 +93,8 @@ namespace TF2SpectatorWin
         private void CommandsClosedSaveChanges(object sender, EventArgs e)
         {
             win = null;
-            if (!CommandDataChanged) return;
+            if (!CommandDataChanged)
+                return;
 
             BackupConfigFile();
 
@@ -96,7 +103,7 @@ namespace TF2SpectatorWin
             // then reload the file - SetTwitchInstance
             if (vm.IsTwitchConnected)
             {
-                vm.SetTwitchInstance();
+                _ = vm.SetTwitchInstance();
             }
         }
 
@@ -160,7 +167,7 @@ namespace TF2SpectatorWin
         public ICommand DataGridDownCommand => _DataGridDown
             ?? (_DataGridDown = new RelayCommand<object>((o) => DataGridDown()));
 
-        public void DataGridAdd(System.Windows.Controls.DataGrid dataGrid)
+        public void DataGridAdd(DataGrid dataGrid)
         {
             int newIndex = SelectedCommandIndex + 1;
             CommandData.Insert(newIndex, new Config("NAME\tCOMMAND"));
@@ -172,7 +179,68 @@ namespace TF2SpectatorWin
 
         private ICommand _DataGridAdd;
         public ICommand DataGridAddCommand => _DataGridAdd
-            ?? (_DataGridAdd = new RelayCommand<object>((o) => DataGridAdd(o as System.Windows.Controls.DataGrid)));
+            ?? (_DataGridAdd = new RelayCommand<object>((o) => DataGridAdd(o as DataGrid)));
 
+        #region paste
+        // DataGrid doesn't include Paste (just copy), so we add it via CommandBinding Command="{x:Static ApplicationCommands.Paste}"
+        // Uses Clipboard in WPF (PresentationCore.dll in v4 of the framework)
+
+        public void OnCanPasteDataGrid(object dg, CanExecuteRoutedEventArgs args)
+        {
+            DataGrid grid = dg as DataGrid;
+
+            args.CanExecute = grid.SelectedItems.Count > 0;
+        }
+
+        public void OnPasteDataGrid(object dg, ExecutedRoutedEventArgs args)
+        {
+            // adapted from https://learn.microsoft.com/en-us/archive/blogs/vinsibal/wpf-datagrid-clipboard-paste-sample
+            // parse the clipboard data
+            List<string[]> rowData = ParseClipboardData();
+
+            // all the "grid." below is why the original post did this as a subclass.  But I just don't want to go there right now.
+            DataGrid grid = dg as DataGrid;
+
+            // call OnPastingCellClipboardContent for each cell
+            int minRowIndex = grid.Items.IndexOf(grid.CurrentItem);
+            int maxRowIndex = grid.Items.Count - 1;
+            int rowDataIndex = 0;
+            for (int i = minRowIndex; i < maxRowIndex && rowDataIndex < rowData.Count; i++, rowDataIndex++)
+            {
+                PasteRowData(grid, grid.Items[i], rowData[rowDataIndex]);
+            }
+        }
+
+        private List<string[]> ParseClipboardData()
+        {
+            IDataObject dataObj = Clipboard.GetDataObject();
+            if (dataObj != null)
+            {
+                string[] formats = dataObj.GetFormats();
+                if (formats.Contains(DataFormats.Text))
+                {
+                    string clipboardString = (string)dataObj.GetData(DataFormats.Text);
+                    // in the future this could be adapted to multiple possible algorithms for csv, ssv, etc. like the original post
+                    // - but that's way more than I need and has its own issues.
+                    return new SimpleTabulatedData().ParseRows(clipboardString);
+                }
+            }
+            return new List<string[]>();
+        }
+
+        private void PasteRowData(DataGrid grid, object rowItem, string[] rowData)
+        {
+            int minColumnDisplayIndex = (grid.SelectionUnit != DataGridSelectionUnit.FullRow) ? grid.Columns.IndexOf(grid.CurrentColumn) : 0;
+            int maxColumnDisplayIndex = grid.Columns.Count - 1;
+            int columnDataIndex = 0;
+            // NOTE - fixed bug from post: j <= not <
+            for (int j = minColumnDisplayIndex; j <= maxColumnDisplayIndex && columnDataIndex < rowData.Length; j++, columnDataIndex++)
+            {
+                DataGridColumn column = grid.ColumnFromDisplayIndex(j);
+                column.OnPastingCellClipboardContent(rowItem, rowData[columnDataIndex]);
+            }
+        }
+
+        #endregion paste
     }
 }
