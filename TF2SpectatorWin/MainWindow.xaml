@@ -99,6 +99,19 @@
 
                     </StackPanel>
                     <Separator/>
+                    <TextBlock Padding="5,0" Text="Add this exec command to your autoexec.cfg to automatically run it on startup."/>
+                    <Label Padding="20,0" FontWeight="Heavy"
+                           Content="{Binding RconConfigFileBase,FallbackValue=TF2SpectatorRCON}"
+                           ContentStringFormat="exec {0}"/>
+                    <Button x:Name="autoexec" Content="Install in autoexec.cfg" Command="{Binding AutoExecCommand}"
+                            ToolTip="in cfg or, if you're using mastercomfig vpk, cfg\user"/>
+                    <TextBlock Padding="5,0" FontStyle="Italic" Text="or invoke that Rcon config file from the 64bit TF2 Console manually (setting above Rcon values creates the config file in the TF2 path):"/>
+                    <TextBlock Padding="5,0" FontWeight="Bold" Text="AND (IMPORTANT) add the following to your TF2 Launch Options:"/>
+                    <Label Padding="20,0" FontWeight="Heavy"
+                           Content="-usercon"/>
+
+                    <TextBlock Padding="5,0" FontStyle="Italic" Text="... or ..."/>
+
                     <StackPanel Orientation="Horizontal">
 
                         <Button x:Name="start" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" MinWidth="75"
@@ -107,16 +120,8 @@
                         <Label Content="▶ from TF2 path"/>
 
                     </StackPanel>
-                    <TextBlock Padding="5,0" FontStyle="Italic" Text="... or ..."/>
-                    <TextBlock Padding="5,0" Text="Add the following to your TF2 Launch Options:"/>
-                    <Label Padding="20,0" FontWeight="Bold"
-                           Content="-usercon"/>
-                    <TextBlock Padding="5,0" Text="THEN Invoke the Rcon config file from the 64bit TF2 Console (setting Rcon values creates the config file in the TF2 path):"/>
-                    <Label Padding="20,0" FontWeight="Bold"
-                           Content="{Binding RconConfigFileBase,FallbackValue=TF2SpectatorRCON}"
-                           ContentStringFormat="exec {0}"/>
-                    <TextBlock Padding="5,0" Text="Or just add that exec command to your autoexec.cfg to automatically run it on startup."/>
-                    <!-- TODO BUTTON to add line to autoexec.cfg if it's not already in there -->
+
+                    <Separator/>
                     <TextBlock Padding="5,0" FontStyle="Italic" Text="... or ..."/>
                     <TextBlock Padding="5,0" Text="Share Rcon with pazer's tf2_bot_detector"/>
                     <TextBlock Padding="5,0" FontStyle="Italic" Text="(as of April 18, 2024 tf2 bot detector does not work with 64bit TF2 unless it gets an update)"/>

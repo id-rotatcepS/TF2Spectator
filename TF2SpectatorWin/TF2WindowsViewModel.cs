@@ -1,6 +1,7 @@
 ﻿using System;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -350,6 +351,63 @@ namespace TF2SpectatorWin
                 Option.Set(nameof(AuthToken), TwitchInstance.AuthToken);
                 DisconnectTwitch();
             }
+        }
+
+        private ICommand _AutoExecCommand;
+        public ICommand AutoExecCommand => _AutoExecCommand
+            ?? (_AutoExecCommand = new RelayCommand<object>(AutoExecCommandExecute, CanAutoExecCommandExecute));
+
+        private void AutoExecCommandExecute(object obj)
+        {
+            string cfgPath = GetAutoexecCfgPath();
+
+            File.AppendAllLines(cfgPath,
+                new[] {
+                    string.Empty, // in case file ends without a newline.
+                    "// Perform configuration for TF2 Spectator:",
+                    AutoExecLine
+                });
+        }
+
+        private static string AutoExecLine = string.Format("exec {0}", TF2Instance.RconConfigFileBaseName);
+
+        private bool CanAutoExecCommandExecute(object arg)
+        {
+            // need path, and either no autoexec, or autoexec doesn't contain our "exec "
+            if (string.IsNullOrWhiteSpace(TF2Path))
+                return false;
+
+            string cfgPath = GetAutoexecCfgPath();
+
+            if (!File.Exists(cfgPath))
+                return true;
+
+            return !File.ReadAllLines(cfgPath).Contains(AutoExecLine);
+        }
+
+        private string GetAutoexecCfgPath()
+        {
+            if (IsUsingMastercomfig())
+            {
+                string MasterComfigUserPath = Path.Combine(TF2Path, @"tf\cfg\user");
+                string AutoexecCfgPathMastercomfig = Path.Combine(MasterComfigUserPath, "autoexec.cfg");
+                return AutoexecCfgPathMastercomfig;
+            }
+
+            string AutoexecCfgPath = Path.Combine(TF2Path, @"tf\cfg", "autoexec.cfg");
+            return AutoexecCfgPath;
+        }
+
+        private bool IsUsingMastercomfig()
+        {
+            if (string.IsNullOrWhiteSpace(TF2Path))
+                return false;
+
+            // /tf/custom/mastercomfig*.vpk
+            string path = Path.Combine(TF2Path, @"tf\custom");
+            return Directory.EnumerateFiles(path).Any(
+                n => Path.GetFileName(n).ToLower().StartsWith("mastercomfig")
+                && Path.GetExtension(n).ToLower() == ".vpk");
         }
 
         private ICommand _PlaySoundCommand;
