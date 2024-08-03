@@ -6,13 +6,8 @@
         xmlns:local="clr-namespace:TF2SpectatorWin"
         mc:Ignorable="d"
         Title="Commands" Height="450" Width="800"
-        Background="DarkSlateGray">
-    <Window.Resources>
-        <Style TargetType="Button">
-            <Setter Property="Background" Value="DarkOrange"/>
-        </Style>
-    </Window.Resources>
-    
+        Style="{StaticResource {x:Type Window}}">
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="70"/>
