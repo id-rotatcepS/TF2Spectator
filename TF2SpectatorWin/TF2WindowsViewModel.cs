@@ -510,6 +510,9 @@ namespace TF2SpectatorWin
             }
             catch (Exception e)
             {
+                //TODO catch specific exception when Auth Token expired (401 error).  Clear token and ask user to click again to get new auth token.
+                //     maybe there's a Client.OnXxxx we could use to directly get notified, but that's not really clear.
+
                 Log.ErrorException(e, "Twitch Failed");
             }
         }

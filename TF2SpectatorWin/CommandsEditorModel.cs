@@ -54,11 +54,9 @@ namespace TF2SpectatorWin
             win.CommandsDataGrid.CellEditEnding += (o, editingEvent) =>
             {
                 if (editingEvent.EditAction == DataGridEditAction.Commit)
-                {
                     CommandDataChanged = true;
-                    //b.Row.Item; 
-                }
             };
+            win.CommandsDataGrid.CellEditEnding += UpdateAliasesOnRename;
 
             PrepareCommandData(win);
 
@@ -66,6 +64,34 @@ namespace TF2SpectatorWin
                 ApplicationCommands.Paste, OnPasteDataGrid, OnCanPasteDataGrid));
 
             win.Show();
+        }
+
+        private void UpdateAliasesOnRename(object o, DataGridCellEditEndingEventArgs editingEvent)
+        {
+            if (editingEvent.EditAction != DataGridEditAction.Commit)
+                return;
+
+            if (nameof(Config.NameAndAliases).Equals(editingEvent.Column.Header)
+            && editingEvent.EditingElement is TextBox textBox
+            && editingEvent.Row.Item is Config config)
+            {
+                string uncommitted = textBox?.Text;
+                string unrenamed = config.Names[0];
+                if (unrenamed == uncommitted)
+                    return;
+
+                RenameAliasTargets(unrenamed, uncommitted);
+            }
+        }
+
+        private void RenameAliasTargets(string oldName, string newName)
+        {
+            for (int i = 0; i < CommandData.Count; i++)
+            {
+                Config otherconfig = CommandData[i];
+                if (otherconfig.CommandFormat == oldName)
+                    otherconfig.CommandFormat = newName;
+            }
         }
 
         private void PrepareCommandData(Commands win)
