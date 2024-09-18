@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -238,6 +239,45 @@ namespace TF2SpectatorWin
             commandConfigModel.LoadSpecialCommands(twitch);
 
             commandConfigModel.LoadCommandConfiguration(twitch);
+
+            twitch.OnCommandRedeemedWithoutIdAlias += (commandDetail, id) =>
+            // live alias addition without having to reload everything.
+                twitch.AddAlias(id, commandDetail.Command);
+
+            twitch.OnCommandRedeemedWithoutIdAlias += SaveIDAlias;
+        }
+
+        private void SaveIDAlias(ChatCommandDetails commandDetail, string id)
+        {
+            Config configAlias = new Config(id + Config.CommandSeparator + commandDetail.Command)
+            {
+                CommandHelp = "Channel Point Redeem ID Alias (automatic)"
+            };
+            string configAliasString = configAlias.ToString();
+
+            lock (this)
+            {
+                string[] commandConfigLines = commandConfigModel.ReadCommandConfig();
+
+                if (commandConfigLines.Contains(configAliasString))
+                    return;
+
+                List<string> updatedCommands = new List<string>(commandConfigLines)
+                {
+                    configAliasString
+                };
+
+                //FUTURE need to better consolidate the file reading/writing, but I like this custom logging.  I suppose the answer is events from the file read/writes.
+                try
+                {
+                    File.WriteAllLines(CommandsEditorModel.ConfigFilePath, updatedCommands);
+                    Log.Info("Saved Redeem ID alias for " + commandDetail.Command);
+                }
+                catch (Exception ex)
+                {
+                    Log.ErrorException(ex, "Error saving commands with new id alias");
+                }
+            }
         }
 
         public string RconPassword
