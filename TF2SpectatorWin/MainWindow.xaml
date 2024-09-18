@@ -5,36 +5,19 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TF2SpectatorWin"
         mc:Ignorable="d"
-        Title="TF2 Spectator" Height="450" Width="800">
+        Title="TF2 Spectator" Height="450" Width="800"
+        Style="{StaticResource {x:Type Window}}">
     <Window.Resources>
-        <Style TargetType="Expander">
-            <Setter Property="BorderBrush" Value="DarkGray"/>
-            <Setter Property="Margin" Value="5"/>
-            <Setter Property="Padding" Value="5"/>
+
+        <Style TargetType="TextBox" x:Key="PartyChat">
+            <Setter Property="ToolTip" Value="{}Party Chat message format - {0}: bot name - {1}: kick key - {2}: no-kick key - {3}: 'mark' or 'kick'
+                    &#x0a;Blank to prevent message"/>
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Foreground" Value="LightGreen"/>
+            <Setter Property="Background" Value="LightSlateGray"/>
+            <Setter Property="CaretBrush" Value="White"/>
         </Style>
-        <!--<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">-->
-        <!--<Style TargetType="{x:Type Expander}" x:Key="ExpanderStyle">
-        <Setter Property="BorderBrush" Value="DarkGray"/>
-      </Style>-->
 
-        <!--<Style TargetType="{x:Type TextBox}" x:Key="MyTextBox">
-        <Setter Property="FontSize" Value="20"/>
-        <Setter Property="Foreground" Value="{DynamicResource MyGreenBrush}"/>
-      </Style>
-
-      <Style TargetType="{x:Type TextBlock}" x:Key="MyResultTextBlock">
-        <Setter Property="FontSize" Value="16"/>
-        <Setter Property="FontWeight" Value="Bold"/>
-        <Setter Property="Foreground" Value="{DynamicResource MyGreenBrush}"/>
-      </Style>
-
-      <Style TargetType="{x:Type Border}" x:Key="MyBorder">
-        <Setter Property="BorderBrush" Value="{DynamicResource MyGreenBrush}"/>
-        <Setter Property="BorderThickness" Value="4"/>
-        <Setter Property="CornerRadius" Value="5"/>
-      </Style>-->
-        <!--</ResourceDictionary>-->
     </Window.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -44,7 +27,7 @@
                 <MenuItem Header="Configure">
                     <MenuItem IsChecked="{Binding IsTwitchConnected, Mode=OneWay}" Header="Link Twitch" Command="{Binding LaunchTwitchCommand}"/>
                     <Separator/>
-                    <MenuItem IsChecked="{Binding IsParsing, Mode=OneWay}" Header="Monitor Game Lobby" Command="{Binding LobbyParseCommand}"
+                    <MenuItem IsChecked="{Binding IsParsing, Mode=OneWay}" Header="Monitor Game Lobby" Command="{Binding OpenLobbyCommand}"
                               DataContext="{Binding LobbyTrackerModel}" />
                     <Separator/>
                     <MenuItem Header="Edit Commands..." Command="{Binding OpenCommandsCommand}"/>
@@ -82,6 +65,19 @@
 
                     </StackPanel>
                     <Separator/>
+                    <TextBlock Padding="5,0" Text="Add this exec command to your autoexec.cfg to automatically run it on startup."/>
+                    <Label Padding="20,0" FontWeight="Heavy"
+                           Content="{Binding RconConfigFileBase,FallbackValue=TF2SpectatorRCON}"
+                           ContentStringFormat="exec {0}"/>
+                    <Button x:Name="autoexec" Content="Install in autoexec.cfg" Command="{Binding AutoExecCommand}"
+                            ToolTip="in cfg or, if you're using mastercomfig vpk, cfg\user"/>
+                    <TextBlock Padding="5,0" FontStyle="Italic" Text="or invoke that Rcon config file from the 64bit TF2 Console manually (setting above Rcon values creates the config file in the TF2 path):"/>
+                    <TextBlock Padding="5,0" FontWeight="Bold" Text="AND (IMPORTANT) add the following to your TF2 Launch Options:"/>
+                    <Label Padding="20,0" FontWeight="Heavy"
+                           Content="-usercon"/>
+
+                    <TextBlock Padding="5,0" FontStyle="Italic" Text="... or ..."/>
+
                     <StackPanel Orientation="Horizontal">
 
                         <Button x:Name="start" HorizontalAlignment="Left" Height="23" VerticalAlignment="Top" MinWidth="75"
@@ -90,16 +86,8 @@
                         <Label Content="▶ from TF2 path"/>
 
                     </StackPanel>
-                    <TextBlock Padding="5,0" FontStyle="Italic" Text="... or ..."/>
-                    <TextBlock Padding="5,0" Text="Add the following to your TF2 Launch Options:"/>
-                    <Label Padding="20,0" FontWeight="Bold"
-                           Content="-usercon"/>
-                    <TextBlock Padding="5,0" Text="THEN Invoke the Rcon config file from the 64bit TF2 Console (setting Rcon values creates the config file in the TF2 path):"/>
-                    <Label Padding="20,0" FontWeight="Bold"
-                           Content="{Binding RconConfigFileBase,FallbackValue=TF2SpectatorRCON}"
-                           ContentStringFormat="exec {0}"/>
-                    <TextBlock Padding="5,0" Text="Or just add that exec command to your autoexec.cfg to automatically run it on startup."/>
-                    <!-- TODO BUTTON to add line to autoexec.cfg if it's not already in there -->
+
+                    <Separator/>
                     <TextBlock Padding="5,0" FontStyle="Italic" Text="... or ..."/>
                     <TextBlock Padding="5,0" Text="Share Rcon with pazer's tf2_bot_detector"/>
                     <TextBlock Padding="5,0" FontStyle="Italic" Text="(as of April 18, 2024 tf2 bot detector does not work with 64bit TF2 unless it gets an update)"/>
@@ -169,32 +157,138 @@
                 </StackPanel>
             </Expander>
 
-            <Expander IsExpanded="False">
+            <Expander IsExpanded="False" DataContext="{Binding LobbyTrackerModel}">
                 <Expander.Header>
                     <StackPanel Orientation="Horizontal">
                         <Label Content="Bot Kicking ☠👎"/>
                         <Button x:Name="OpenLobby" HorizontalAlignment="Center"
-                                Content="Watch Game Lobby"
+                                Content="Watch game lobby for bots"
                                 Command="{Binding OpenLobbyCommand}"
                                 ToolTip="Activate automatic bot kicking and related features - mark new bots/cheaters in the list below"/>
                     </StackPanel>
                 </Expander.Header>
                 <StackPanel Orientation="Vertical">
-                    <TextBlock Padding="5,0" Text="Requires a good TF2 Rcon connection and a configured TF2 Path."/>
-                    <TextBlock Padding="5,0" HorizontalAlignment="Center" FontStyle="Italic"
-                               Text="(future bot kicking configuration will be added here)"/>
-                    <TextBlock Padding="5,0" Text="Optionally install 'Vote Eraser' from pazer's system to silence and hide failed vote attempts:"/>
+                    <TextBlock Padding="5,0" HorizontalAlignment="Center" Text="Requires a good TF2 Rcon connection and a configured TF2 Path."/>
+
+                    <TextBlock Padding="10,5,10,0" 
+                               TextWrapping="Wrap" TextAlignment="Right" FontStyle="Italic">
+                        Party chat suggestions go to your whole party and wait for your response key - 
+                        {0} is the bot name,
+                        {1} and {2} are response keys,
+                        {3} is 'kick' on your team, 'mark' on the other<!--,-->
+                        <!--{4} might be the twitch user name-->
+                    </TextBlock>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition />
+                            <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition />
+                            <RowDefinition />
+                            <RowDefinition />
+                            <RowDefinition />
+                            <RowDefinition />
+                            <RowDefinition />
+                            <RowDefinition />
+                            <RowDefinition />
+                            <RowDefinition />
+                            <RowDefinition />
+                            <RowDefinition />
+                            <RowDefinition />
+                        </Grid.RowDefinitions>
+                        <CheckBox x:Name="IsSuggestingMuted" Content="‼🔇 suggest past mutes as bots? Chat announcement:"
+                                  Margin="4"
+                                  Grid.Row="1" Grid.Column="0"
+                                  IsChecked="{Binding BotConfig.IsSuggestingMuted}"/>
+                        <TextBox x:Name="MutedMessage" Text="{Binding BotConfig.MutedMessage}"
+                                 Style="{StaticResource ResourceKey=PartyChat}"
+                                 Grid.Row="1" Grid.Column="1"
+                                 IsEnabled="{Binding ElementName=IsSuggestingMuted,Path=IsChecked}" 
+                                 />
+
+                        <CheckBox x:Name="IsSuggestingCommonNames" Content="‼☠suggest names like known bots? Chat announcement:"
+                                  Margin="4"
+                                  Grid.Row="2" Grid.Column="0"
+                                  IsChecked="{Binding BotConfig.IsSuggestingNames}"/>
+                        <TextBox x:Name="NameMessage" Text="{Binding BotConfig.NameMessage}"
+                                 Style="{StaticResource ResourceKey=PartyChat}"
+                                 Grid.Row="2" Grid.Column="1"
+                                 IsEnabled="{Binding ElementName=IsSuggestingCommonNames,Path=IsChecked}" 
+                                 />
+
+                        <Label Content="💬 suggested by 'kick a bot...' command. Chat announcement:" 
+                               Grid.Row="3" Grid.Column="0"/>
+                        <TextBox x:Name="TwitchSuggestionMessage" Text="{Binding BotConfig.TwitchSuggestionMessage}"
+                                 Style="{StaticResource ResourceKey=PartyChat}"
+                                 Grid.Row="3" Grid.Column="1"/>
+
+                        <Label Content="🔊 Suggestion announcement Sound"
+                               Background="Yellow"
+                               Grid.Row="4" Grid.Column="0"/>
+                        <ComboBox x:Name="SuggestionSound" HorizontalAlignment="Left"
+                                  SelectedValue="{Binding BotConfig.SuggestionSound}"
+                                  ItemsSource="{Binding SOUNDS}" DisplayMemberPath="Description"
+                                  Grid.Row="4" Grid.Column="1"/>
+
+                        <Label Content="⌨ mark 👎 'bot' response key ({1} in party chat):" 
+                                Grid.Row="5" Grid.Column="0"/>
+                        <ComboBox x:Name="BotBind" HorizontalAlignment="Left"
+                                  SelectedValue="{Binding BotConfig.BotBind}" 
+                                  ItemsSource="{Binding BINDKEYS}"
+                                  Grid.Row="5" Grid.Column="1"/>
+
+                        <Label Content="⌨ mark 💚 'no kick' response key ({2} in party chat):"
+                               Grid.Row="6" Grid.Column="0"/>
+                        <ComboBox x:Name="NoKickBind" HorizontalAlignment="Left"
+                                  SelectedValue="{Binding BotConfig.NoKickBind}" 
+                                  ItemsSource="{Binding BINDKEYS}"
+                                  Grid.Row="6" Grid.Column="1"/>
+
+                        <Label Content="🔊 Kicking announcement Sound"
+                               Background="Red"
+                               Grid.Row="7" Grid.Column="0"/>
+                        <ComboBox x:Name="KickingSound" HorizontalAlignment="Left"
+                                  SelectedValue="{Binding BotConfig.KickingSound}"
+                                  ItemsSource="{Binding SOUNDS}" DisplayMemberPath="Description"
+                                  Grid.Row="7" Grid.Column="1"/>
+
+                        <!--<Label Content="🔊Other team has bots Sound"
+                               Grid.Row="7" Grid.Column="0"/>
+                        <ComboBox x:Name="OtherTeamBotSound" HorizontalAlignment="Left"
+                                  SelectedValue="{Binding OtherTeamBotSound}"
+                                  ItemsSource="{Binding SOUNDS}" DisplayMemberPath="Description"
+                                  Grid.Row="7" Grid.Column="1"/>
+
+                        <Label Content="🔊No more bots Sound"
+                               Grid.Row="8" Grid.Column="0"/>
+                        <ComboBox x:Name="NoMoreBotsSound" HorizontalAlignment="Left"
+                                  SelectedValue="{Binding NoMoreBotsSound}"
+                                  ItemsSource="{Binding SOUNDS}" DisplayMemberPath="Description"
+                                  Grid.Row="8" Grid.Column="1"/>-->
+                    </Grid>
+
+                    <Separator/>
+                    <TextBlock Padding="5,0" Text="Optionally add 'Vote Eraser' HUD mod from pazer's system to silence and hide failed vote attempts:"/>
                     <Button x:Name="InstallVoteEraser" HorizontalAlignment="Center"
                             Content="Install Vote Eraser"
                             Command="{Binding InstallVoteEraserCommand}"/>
-                    <!-- TODO
-                    config mark/unmark bind keys
-                    config suggestion message(s)
-                    Toggle mute & repeat name suggestions..and fuzziness? (twitch name suggestions always on - just disable the command in commands)
-                    -->
                 </StackPanel>
             </Expander>
-            
+
+            <Separator />
+
+            <Expander Header="Log 📜" IsExpanded="True" MaxHeight="235">
+                <ScrollViewer x:Name="logScroller" VerticalScrollBarVisibility="Visible">
+                    <TextBox x:Name="log" HorizontalAlignment="Left" MinHeight="70" TextWrapping="Wrap" VerticalContentAlignment="Stretch" MinWidth="700"
+                         Text="{Binding CommandLog}" 
+                         BorderBrush="Transparent"
+                         Background="Transparent" BorderThickness="0"
+                         Padding="5 0 0 0"
+                         IsReadOnly="True" IsReadOnlyCaretVisible="True" IsInactiveSelectionHighlightEnabled="True" TextChanged="log_TextChanged"/>
+                </ScrollViewer>
+            </Expander>
+
             <Expander Header="Testing for TF2 commands" IsExpanded="False">
                 <StackPanel>
                     <ToolBar Height="33" Margin="0,0,0,0"  HorizontalAlignment="Stretch" VerticalAlignment="Top">
@@ -212,9 +306,19 @@
                     </ToolBar>
 
                     <StackPanel Orientation="Horizontal">
+                        <ComboBox x:Name="TestSound" HorizontalAlignment="Left"
+                                  SelectedIndex="0"
+                                  SelectedValue="{Binding TestSound}"
+                                  ItemsSource="{Binding LobbyTrackerModel.SOUNDS}" DisplayMemberPath="Description"
+                                  />
+                        <Button x:Name="TestSoundCommand" Content="📡Play Sound" HorizontalAlignment="Left" VerticalAlignment="Top" Width="100"
+                          Command="{Binding PlaySoundCommand}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
 
                         <Label Content="console command:"/>
-                        <TextBox x:Name="input" HorizontalAlignment="Left" Height="23" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"
+
+                        <TextBox x:Name="input" HorizontalAlignment="Left" Height="23" TextWrapping="Wrap" VerticalAlignment="Top" Width="250"
                            Text="{Binding CommandString}"/>
                         <Button x:Name="send" Content="📡Send" HorizontalAlignment="Left" VerticalAlignment="Top" Width="75"
                           Command="{Binding SendCommand}"/>
@@ -224,19 +328,6 @@
 
                     </StackPanel>
                 </StackPanel>
-            </Expander>
-
-            <Separator />
-
-            <Expander Header="Log 📜" IsExpanded="True" MaxHeight="235">
-                <ScrollViewer x:Name="logScroller" VerticalScrollBarVisibility="Visible">
-                    <TextBox x:Name="log" HorizontalAlignment="Left" MinHeight="70" TextWrapping="Wrap" VerticalContentAlignment="Stretch" MinWidth="700"
-                         Text="{Binding CommandLog}" 
-                         BorderBrush="Transparent"
-                         Background="Transparent" BorderThickness="0"
-                         Padding="5 0 0 0"
-                         IsReadOnly="True" IsReadOnlyCaretVisible="True" IsInactiveSelectionHighlightEnabled="True" TextChanged="log_TextChanged"/>
-                </ScrollViewer>
             </Expander>
 
         </StackPanel>

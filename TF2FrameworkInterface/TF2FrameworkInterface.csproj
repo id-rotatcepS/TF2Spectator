@@ -101,6 +101,7 @@
     <Compile Include="TF2Command.cs" />
     <Compile Include="TF2Instance.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TF2Sound.cs" />
     <Compile Include="TF2VoiceBanFile.cs" />
     <Compile Include="TFDebugLobbyCommandOutput.cs" />
   </ItemGroup>

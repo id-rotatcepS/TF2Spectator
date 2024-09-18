@@ -4,6 +4,8 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.RegularExpressions;
 
+using Newtonsoft.Json;
+
 namespace TF2FrameworkInterface
 {
     public class Bot
@@ -24,18 +26,44 @@ namespace TF2FrameworkInterface
 
     public class BotHandlingConfig
     {
+        // populated just before passing to BotHandling
+        [JsonIgnore]
         public string TF2Path;
+
+        // populated just before passing to BotHandling
+        [JsonIgnore]
         public string PlayerlistPath;
+
+        // populated just before passing to BotHandling
+        [JsonIgnore]
         public string UserID;
+
+        public TF2Sound KickingSound { get; set; }
+
+        public TF2Sound SuggestionSound { get; set; }
+
+        public bool IsSuggestingMuted { get; set; }
+        public string MutedMessage { get; set; }
+
+        public bool IsSuggestingNames { get; set; }
+        //'{0}' is similar to other bot names. Press {1} to kick or {2} to not
+        public string NameMessage { get; set; }
+
+        //Twitch chat ({4}) thinks '{0}' is a bot. Press {1} to kick or {2} to not
+        public string TwitchSuggestionMessage { get; set; }
+
+        public string BotBind { get; set; } = "0";
+        public string NoKickBind { get; set; } = "SEMICOLON";
     }
     public class BotHandling
     {
         public BotHandling(TF2Instance TF2, BotHandlingConfig config)
         {
             this.TF2 = TF2;
+            this.Config = config;
 
             MySteamUniqueID = config.UserID;
-            
+
             Muted = new TF2VoiceBanFile(config.TF2Path);
             Muted.Load();
 
@@ -49,17 +77,17 @@ namespace TF2FrameworkInterface
             Banned.AddURLFile("https://trusted.roto.lol/v1/steamids");
 
             Lobby = new TFDebugLobbyCommandOutput(TF2);
-            Lobby.LobbyUpdated += (l) => {
-                
-                    //RefreshPlayers();
-               
-                GameLobbyUpdated?.DynamicInvoke(this); 
+            Lobby.LobbyUpdated += (l) =>
+            {
+                //RefreshPlayers();
+
+                GameLobbyUpdated?.DynamicInvoke(this);
             };
             Lobby.LobbyServerChanged += ResetBotServerKickInfo;
 
             ServerDetail = new StatusCommandLogOutput(TF2, config.TF2Path);
             //ServerDetail.StatusUpdated += (s) => GameLobbyUpdated?.DynamicInvoke(this);
-            
+
             RefreshBotList();
         }
 
@@ -128,21 +156,20 @@ namespace TF2FrameworkInterface
         private bool IsBot(string steamUniqueID)
         {
             // possible bot - cheap test.
-            bool isSimilarNametoSuggestion = IsNameForIDSimilarToASuggestedName(steamUniqueID);
-            if (isSimilarNametoSuggestion)
+            if (IsNameForIDSimilarToASuggestedName(steamUniqueID))
                 return true;
-            bool isMuted = Muted.UIDs.Contains(steamUniqueID);
-            if (isMuted)
+
+            if (Config.IsSuggestingMuted
+                && IsMuted(steamUniqueID))
                 return true;
 
             // definite bot.
-            bool isCheater = IsBannedID(steamUniqueID);
-            if (isCheater)
+            if (IsBannedID(steamUniqueID))
                 return true;
 
             // possible bot - more expensive test.
-            bool isSimilarNameToBot = IsNameForIDSimilarToARepeatedBotName(steamUniqueID);
-            if (isSimilarNameToBot)
+            if (Config.IsSuggestingNames
+                && IsNameForIDSimilarToARepeatedBotName(steamUniqueID))
                 return true;
 
             return false;
@@ -162,6 +189,11 @@ namespace TF2FrameworkInterface
             string subjectBotEx = BotEx(subjectName);
 
             return SuggestedNames.Any(name => BotEx(name) == subjectBotEx);
+        }
+
+        internal bool IsMuted(string steamUniqueID)
+        {
+            return Muted.UIDs.Contains(steamUniqueID);
         }
 
         private bool IsNameForIDSimilarToARepeatedBotName(string steamUniqueID)
@@ -248,6 +280,7 @@ namespace TF2FrameworkInterface
         }
 
         private TF2Instance TF2 { get; }
+        internal BotHandlingConfig Config { get; }
         private TF2VoiceBanFile Muted { get; }
         private TF2BDFiles Banned { get; }
         //public Bot VotingOnThisBot { get; private set; }
@@ -581,7 +614,7 @@ namespace TF2FrameworkInterface
         internal void BotKickOver(Bot votingOnThisBot)
         {
             //if(!cancelled)
-            
+
             // don't need to do this, we're already in a loop that will do it. Next();
         }
     }
@@ -666,8 +699,8 @@ namespace TF2FrameworkInterface
         private void OfferKick()
         {
 
-            string kickkey = "0";
-            string skipkey = "SEMICOLON";
+            string kickkey = handler.Config.BotBind;
+            string skipkey = handler.Config.NoKickBind;
 
             string setupKick =
                 $"alias bind_kickkey \"" +
@@ -706,7 +739,12 @@ namespace TF2FrameworkInterface
 
         protected virtual string GetOfferKickAudioAlert()
         {
-            return $"play player/cyoa_pda_beep4.wav;";
+            TF2Sound sound = handler.Config.SuggestionSound;
+            if (!sound.IsActive)
+                return string.Empty;
+
+            return string.Format("play {0};", sound.File);
+
         }
 
         protected virtual string GetOfferKickTextAlert(string kickkey, string skipkey)
@@ -716,10 +754,20 @@ namespace TF2FrameworkInterface
 
         protected string GetOfferKickTextAlert(string kickkey, string skipkey, string kickOrMark)
         {
+            string partyMessageFormat = handler.Config.NameMessage;
+
             if (handler.IsSimilarToSuggestedName(VotingOnThisBot.Name))
-                return $"say_party twitch chat thinks '{VotingOnThisBot.Name}' is a bot    - deciding if I will {kickOrMark} ('{kickkey}') or not ('{skipkey}')";
+                partyMessageFormat = handler.Config.TwitchSuggestionMessage;
             else
-                return $"say_party '{VotingOnThisBot.Name}' named or muted like a past bot    - deciding if I will {kickOrMark} ('{kickkey}') or not ('{skipkey}')";
+            if (handler.Config.IsSuggestingMuted
+                && handler.IsMuted(VotingOnThisBot.SteamUniqueID))
+                partyMessageFormat = handler.Config.MutedMessage;
+
+            if (string.IsNullOrWhiteSpace(partyMessageFormat))
+                return string.Empty;
+
+            return "say_party " + string.Format(partyMessageFormat, VotingOnThisBot.Name,
+                    kickkey, skipkey, kickOrMark);
         }
 
         private const string kick_response_variable = "tf2spec_kick_response";
@@ -761,9 +809,7 @@ namespace TF2FrameworkInterface
         private string VoteKickCommand(Bot bot)
         {
             string reason = "cheating";
-            return
-                //"say_party " +//TODO testing
-                $"callvote kick \"{bot.GameID} {reason}\"";
+            return $"callvote kick \"{bot.GameID} {reason}\"";
         }
 
 
@@ -878,12 +924,11 @@ namespace TF2FrameworkInterface
 
         private void AnnounceKicking()
         {
-            Send(// "say_party trying to kick '"+ VotingOnThisBot.Name+"';" +
-                // buzzer:
-                //"play replay/replaydialog_warn.wav;"
-                // harp strum:
-                "play ui/mm_rank_up.wav;"
-                , null);
+            TF2Sound sound = handler.Config.KickingSound;
+            if (sound.IsActive)
+                Send(// "say_party trying to kick '"+ VotingOnThisBot.Name+"';" +
+                    string.Format("play {0};", sound.File)
+                    , null);
         }
     }
 }

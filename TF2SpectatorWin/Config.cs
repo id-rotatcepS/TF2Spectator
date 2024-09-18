@@ -1,10 +1,21 @@
-﻿namespace TF2SpectatorWin
+﻿using System.ComponentModel;
+
+namespace TF2SpectatorWin
 {
     /// <summary>
     /// a single command configuration entry
     /// </summary>
-    internal class Config
+    internal class Config : INotifyPropertyChanged
     {
+        #region INotifyPropertyChanged
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        public void ViewNotification(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+        #endregion INotifyPropertyChanged
+
         public const char CommandSeparator = '\t';
 
         public Config(string config)
@@ -41,14 +52,54 @@
         //    return NameAndAliases?.Substring(COMMENT.Length);
         //}
 
-        public string NameAndAliases { get; set; }
+        private string nameAndAliases;
+        public string NameAndAliases
+        {
+            get => nameAndAliases;
+            set
+            {
+                nameAndAliases = value;
+                ViewNotification(nameof(NameAndAliases));
+            }
+        }
+
         internal string[] Names =>
             //(IsEnabled ? 
             NameAndAliases
             //: NamesWithoutComment())
             .Split('|');
-        public string CommandFormat { get; set; }
-        public string CommandHelp { get; set; }
-        public string ResponseFormat { get; set; }
+
+        private string commandFormat;
+        public string CommandFormat
+        {
+            get => commandFormat;
+            set
+            {
+                commandFormat = value;
+                ViewNotification(nameof(CommandFormat));
+            }
+        }
+
+        private string commandHelp;
+        public string CommandHelp
+        {
+            get => commandHelp;
+            set
+            {
+                commandHelp = value;
+                ViewNotification(nameof(CommandHelp));
+            }
+        }
+
+        private string responseFormat;
+        public string ResponseFormat
+        {
+            get => responseFormat;
+            set
+            {
+                responseFormat = value;
+                ViewNotification(nameof(ResponseFormat));
+            }
+        }
     }
 }

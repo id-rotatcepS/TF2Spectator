@@ -4,6 +4,23 @@
              xmlns:local="clr-namespace:TF2SpectatorWin"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <Style TargetType="Window">
+            <Setter Property="Background" Value="DarkSlateGray"/>
+        </Style>
+        
+        <Style TargetType="Menu">
+            <Setter Property="Background" Value="SlateGray"/>
+        </Style>
+        
+        <Style TargetType="Expander">
+            <Setter Property="BorderBrush" Value="DarkGray"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Background" Value="LightGray"/>
+        </Style>
+        
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="DarkOrange"/>
+        </Style>
     </Application.Resources>
 </Application>

@@ -1,11 +1,15 @@
-﻿using Microsoft.Extensions.Logging;
-using SimpleExpressionEvaluator;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+
+using Microsoft.Extensions.Logging;
+
+using SimpleExpressionEvaluator;
+
 using TwitchAuthInterface;
+
 using TwitchLib.Api;
 using TwitchLib.Api.Helix.Models.Users.GetUsers;
 using TwitchLib.Client;
@@ -71,7 +75,7 @@ namespace TF2SpectatorWin
                 clientID: ClientID);
             // includes redeems in scope even if it's a non-affiliated account
             OAuthResult authResult = oauth.Authorize(ClientOAuthScopes);
-            
+
             // Throws exception if it was an error result:
             return authResult.AccessToken;
         }
@@ -190,9 +194,25 @@ namespace TF2SpectatorWin
 
         private ChatCommandDetails GetRedeemCommandByNameOrID(Redemption redemption)
         {
-            return GetRedeemCommand(redemption.Reward.Title)
-                // if the title no longer works, maybe they set up the ID as an alias?
-                ?? GetRedeemCommand(redemption.Reward.Id);
+            ChatCommandDetails byID = GetRedeemCommand(redemption.Reward.Id);
+            if (byID != null)
+                return byID;
+
+            ChatCommandDetails byTitle = GetRedeemCommand(redemption.Reward.Title);
+
+            AddAutomaticIdAlias(redemption.Reward.Id, byTitle);
+
+            return byTitle;
+        }
+
+        public delegate void CommandRedeemId(ChatCommandDetails commandDetail, string id);
+        public event CommandRedeemId OnCommandRedeemedWithoutIdAlias;
+        private void AddAutomaticIdAlias(string id, ChatCommandDetails byTitle)
+        {
+            if (byTitle == null)
+                return;
+
+            OnCommandRedeemedWithoutIdAlias?.Invoke(byTitle, id);
         }
 
         private void Client_OnChatCommandReceived(object sender, OnChatCommandReceivedArgs e)
@@ -359,8 +379,8 @@ namespace TF2SpectatorWin
         {
             int idx = message.Substring(0, TwitchMaxMessageLength)
                 .LastIndexOfAny(new[] { ' ', '-', '\t', '\n', '\r' });
-            return idx >= 0 
-                ? idx + 1 
+            return idx >= 0
+                ? idx + 1
                 : TwitchMaxMessageLength;
         }
 
@@ -379,7 +399,7 @@ namespace TF2SpectatorWin
         private void Client_OnUnaccountedFor(object sender, OnUnaccountedForArgs e)
         {
 
-             Console.WriteLine($"{e.BotUsername} - {e.RawIRC}");
+            Console.WriteLine($"{e.BotUsername} - {e.RawIRC}");
         }
 
         private void Client_OnConnected(object sender, OnConnectedArgs e)
@@ -402,7 +422,7 @@ namespace TF2SpectatorWin
             string response = GetMathAnswer(msg);
             if (response != null)
             {
-                SendReplyWithWrapping(e.ChatMessage.Id, response); 
+                SendReplyWithWrapping(e.ChatMessage.Id, response);
                 return;
             }
 
@@ -451,5 +471,5 @@ namespace TF2SpectatorWin
             //else
             //    client.SendMessage(e.Channel, $"Welcome {e.Subscriber.DisplayName} to the substers! You just earned 500 points!");
         }
-   }
+    }
 }

@@ -1,12 +1,15 @@
-﻿using ASPEN;
-using AspenWin;
-
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Input;
+
+using ASPEN;
+
+using AspenWin;
 
 using TF2FrameworkInterface;
 
@@ -91,9 +94,9 @@ namespace TF2SpectatorWin
             LobbyTrackerModel = new TF2LobbyTrackerModel(this);
         }
 
-        private ASPEN.AspenLogging Log => ASPEN.Aspen.Log;
+        private AspenLogging Log => Aspen.Log;
 
-        private ASPEN.AspenUserSettings Option => ASPEN.Aspen.Option;
+        private AspenUserSettings Option => Aspen.Option;
 
         private void SaveConfig()
         {
@@ -144,7 +147,7 @@ namespace TF2SpectatorWin
                 _tf2 = CreateTF2Instance();
                 // make sure we deal with the connection gone bad
                 _tf2?.SetOnDisconnected(TF2InstanceDisconnected);
-                
+
                 return _tf2;
             }
             finally
@@ -194,6 +197,7 @@ namespace TF2SpectatorWin
         {
             try
             {
+                _twitch?.Dispose();
                 return _twitch = CreateTwitchInstance(TwitchUsername);
             }
             finally
@@ -236,6 +240,45 @@ namespace TF2SpectatorWin
             commandConfigModel.LoadSpecialCommands(twitch);
 
             commandConfigModel.LoadCommandConfiguration(twitch);
+
+            twitch.OnCommandRedeemedWithoutIdAlias += (commandDetail, id) =>
+            // live alias addition without having to reload everything.
+                twitch.AddAlias(id, commandDetail.Command);
+
+            twitch.OnCommandRedeemedWithoutIdAlias += SaveIDAlias;
+        }
+
+        private void SaveIDAlias(ChatCommandDetails commandDetail, string id)
+        {
+            Config configAlias = new Config(id + Config.CommandSeparator + commandDetail.Command)
+            {
+                CommandHelp = "Channel Point Redeem ID Alias (automatic)"
+            };
+            string configAliasString = configAlias.ToString();
+
+            lock (this)
+            {
+                string[] commandConfigLines = commandConfigModel.ReadCommandConfig();
+
+                if (commandConfigLines.Contains(configAliasString))
+                    return;
+
+                List<string> updatedCommands = new List<string>(commandConfigLines)
+                {
+                    configAliasString
+                };
+
+                //FUTURE need to better consolidate the file reading/writing, but I like this custom logging.  I suppose the answer is events from the file read/writes.
+                try
+                {
+                    File.WriteAllLines(CommandsEditorModel.ConfigFilePath, updatedCommands);
+                    Log.Info("Saved Redeem ID alias for " + commandDetail.Command);
+                }
+                catch (Exception ex)
+                {
+                    Log.ErrorException(ex, "Error saving commands with new id alias");
+                }
+            }
         }
 
         public string RconPassword
@@ -351,6 +394,78 @@ namespace TF2SpectatorWin
             }
         }
 
+        private ICommand _AutoExecCommand;
+        public ICommand AutoExecCommand => _AutoExecCommand
+            ?? (_AutoExecCommand = new RelayCommand<object>(AutoExecCommandExecute, CanAutoExecCommandExecute));
+
+        private void AutoExecCommandExecute(object obj)
+        {
+            string cfgPath = GetAutoexecCfgPath();
+
+            File.AppendAllLines(cfgPath,
+                new[] {
+                    string.Empty, // in case file ends without a newline.
+                    "// Perform configuration for TF2 Spectator:",
+                    AutoExecLine
+                });
+        }
+
+        private static string AutoExecLine = string.Format("exec {0}", TF2Instance.RconConfigFileBaseName);
+
+        private bool CanAutoExecCommandExecute(object arg)
+        {
+            // need path, and either no autoexec, or autoexec doesn't contain our "exec "
+            if (string.IsNullOrWhiteSpace(TF2Path))
+                return false;
+
+            string cfgPath = GetAutoexecCfgPath();
+
+            if (!File.Exists(cfgPath))
+                return true;
+
+            return !File.ReadAllLines(cfgPath).Contains(AutoExecLine);
+        }
+
+        private string GetAutoexecCfgPath()
+        {
+            if (IsUsingMastercomfig())
+            {
+                string MasterComfigUserPath = Path.Combine(TF2Path, @"tf\cfg\user");
+                string AutoexecCfgPathMastercomfig = Path.Combine(MasterComfigUserPath, "autoexec.cfg");
+                return AutoexecCfgPathMastercomfig;
+            }
+
+            string AutoexecCfgPath = Path.Combine(TF2Path, @"tf\cfg", "autoexec.cfg");
+            return AutoexecCfgPath;
+        }
+
+        private bool IsUsingMastercomfig()
+        {
+            if (string.IsNullOrWhiteSpace(TF2Path))
+                return false;
+
+            // /tf/custom/mastercomfig*.vpk
+            string path = Path.Combine(TF2Path, @"tf\custom");
+            return Directory.EnumerateFiles(path).Any(
+                n => Path.GetFileName(n).ToLower().StartsWith("mastercomfig")
+                && Path.GetExtension(n).ToLower() == ".vpk");
+        }
+
+        private ICommand _PlaySoundCommand;
+        public ICommand PlaySoundCommand => _PlaySoundCommand
+            ?? (_PlaySoundCommand = new RelayCommand<object>(PlaySoundExecute,
+                (o) => !string.IsNullOrEmpty(TestSound?.File)));
+
+        private void PlaySoundExecute(object obj)
+        {
+            TF2Sound sound = (obj as TF2Sound) ?? TestSound;
+            if (sound == null) return;
+
+            string consoleCommand = "play " + sound.File;
+            SendCommandAndProcessResponse(consoleCommand,
+                null);
+        }
+
         private ICommand _SendCommand;
         public ICommand SendCommand => _SendCommand
             ?? (_SendCommand = new RelayCommand<object>(SendCommandExecute));
@@ -359,7 +474,7 @@ namespace TF2SpectatorWin
         {
             string consoleCommand = obj?.ToString() ?? CommandString;
 
-            SendCommandAndProcessResponse(consoleCommand, 
+            SendCommandAndProcessResponse(consoleCommand,
                 SetOutputString);
         }
 
@@ -418,9 +533,9 @@ namespace TF2SpectatorWin
 
         private bool CanTwitchCommandExecute(object arg)
         {
-            if (IsTwitchConnected) 
+            if (IsTwitchConnected)
                 return true;
-         
+
             return !string.IsNullOrWhiteSpace(TwitchUsername)
                 && TwitchUsername != TF2SpectatorSettings.DefaultUserName;
         }
@@ -436,6 +551,9 @@ namespace TF2SpectatorWin
             }
             catch (Exception e)
             {
+                //TODO catch specific exception when Auth Token expired (401 error).  Clear token and ask user to click again to get new auth token.
+                //     maybe there's a Client.OnXxxx we could use to directly get notified, but that's not really clear.
+
                 Log.ErrorException(e, "Twitch Failed");
             }
         }
@@ -455,6 +573,8 @@ namespace TF2SpectatorWin
         {
             SaveConfig();
         }
+
+        public TF2Sound TestSound { get; set; }
 
         public string CommandString { get; set; }
         public string OutputString { get; set; }
