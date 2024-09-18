@@ -197,6 +197,7 @@ namespace TF2SpectatorWin
         {
             try
             {
+                _twitch?.Dispose();
                 return _twitch = CreateTwitchInstance(TwitchUsername);
             }
             finally
