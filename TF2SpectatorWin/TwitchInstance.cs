@@ -444,19 +444,71 @@ namespace TF2SpectatorWin
             if (!mathRegex.IsMatch(msg))
                 return null;
 
+            string equationAnswer = GetEquationAnswer(msg);
+            if (equationAnswer != null)
+                return equationAnswer;
+
+            return GetMathResponseOneSide(msg);
+        }
+
+        private string GetEquationAnswer(string msg)
+        {
+            string[] halves = msg.Split('=');
+            if (halves.Length != 2)
+                return null;
+
+            string lhs = halves[0];
+            string rhs = halves[1];
+
+            string lhsAnswer = GetMathAnswerOneSide(lhs);
+            string rhsAnswer = GetMathAnswerOneSide(rhs);
+            if (lhsAnswer != null && rhsAnswer != null)
+                return GetEqualityAnswer(lhs, rhs, lhsAnswer, rhsAnswer);
+
+            if (lhsAnswer != null)
+                return lhsAnswer + " = " + rhs;
+            if (rhsAnswer != null)
+                return lhs + " = " + rhsAnswer;
+            return null;
+        }
+
+        private string GetMathAnswerOneSide(string msg)
+        {
             try
             {
-                string mathAnswer = mathDoer.Evaluate(msg).ToString();
-                if (mathAnswer == null)
-                    return null;
-
-                return (msg + " = " + mathAnswer);
+                return mathDoer.Evaluate(msg).ToString();
             }
             catch (Exception ex)
             {
                 //Console.WriteLine(ex.Message);
                 return null;
             }
+        }
+
+        private string GetEqualityAnswer(string lhs, string rhs, string lhsAnswer, string rhsAnswer)
+        {
+            bool leftSimplified = !lhs.Trim().Equals(lhsAnswer.Trim());
+            bool rightSimplified = !rhs.Trim().Equals(rhsAnswer.Trim());
+
+            if (!lhsAnswer.Equals(rhsAnswer))
+                return "No. " +
+                    lhs + (leftSimplified ? (" = " + lhsAnswer) : "") +
+                    " is not the same as " +
+                    rhs + (rightSimplified ? (" = " + rhsAnswer) : "");
+
+            if (leftSimplified && rightSimplified)
+                return "Yes, " + lhsAnswer + " = " + lhs + " = " + rhs;
+            else
+                return "Yes, " + lhs + " = " + rhs;
+        }
+
+        private string GetMathResponseOneSide(string msg)
+        {
+            string mathAnswer = GetMathAnswerOneSide(msg);
+            if (mathAnswer == null)
+                return null;
+
+            return (msg + " = " + mathAnswer);
         }
 
         private void Client_OnWhisperReceived(object sender, OnWhisperReceivedArgs e)
