@@ -1,12 +1,12 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+
+using SimpleExpressionEvaluator;
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-
-using Microsoft.Extensions.Logging;
-
-using SimpleExpressionEvaluator;
 
 using TwitchAuthInterface;
 
@@ -129,6 +129,7 @@ namespace TF2SpectatorWin
         public void Dispose()
         {
             Client.Disconnect();
+            Pubsub?.Disconnect();
         }
 
         private void StartPubSubWhenNeeded()

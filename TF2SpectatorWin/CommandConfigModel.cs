@@ -120,7 +120,10 @@ namespace TF2SpectatorWin
             try
             {
                 string filename = CommandsEditorModel.ConfigFilePath;
-                return File.ReadAllLines(filename);
+                lock (vm)
+                {
+                    return File.ReadAllLines(filename);
+                }
             }
             catch (FileNotFoundException)
             {
