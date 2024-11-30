@@ -23,7 +23,7 @@ namespace TF2SpectatorWin
         {
             ChatCommandDetails classSelection = new ChatCommandDetails(
                                         "tf2 class selection", RedeemClass,
-                                        "Select a TF2 class with 1-9 or Scout, Soldier, Pyro, Demoman, Heavy, Engineer, Medic, Sniper, or Spy");
+                                        "Select a TF2 class with 1-9 or Scout, Soldier, Pyro, Demoman, Heavy, Engineer, Medic, Sniper, Spy, or random");
             twitch.AddCommand(classSelection);
 
             ChatCommandDetails colorSelection = new ChatCommandDetails(
@@ -120,7 +120,10 @@ namespace TF2SpectatorWin
             try
             {
                 string filename = CommandsEditorModel.ConfigFilePath;
-                return File.ReadAllLines(filename);
+                lock (vm)
+                {
+                    return File.ReadAllLines(filename);
+                }
             }
             catch (FileNotFoundException)
             {
@@ -240,18 +243,19 @@ namespace TF2SpectatorWin
 
         #region TF2ClassHandling
 
-        private static readonly Regex scout = new Regex("scout|Jeremy|scunt|baby|1", RegexOptions.IgnoreCase);
-        private static readonly Regex soldier = new Regex("soldier|Jane|Doe|solly|2", RegexOptions.IgnoreCase);
-        private static readonly Regex pyro = new Regex("pyro|pybro|flyro|3", RegexOptions.IgnoreCase);
-        private static readonly Regex demo = new Regex("demo|Tavish|DeGroot|explo|4", RegexOptions.IgnoreCase);
-        private static readonly Regex heavy = new Regex("heavy|Mikhail|Misha|hoovy|fat|5", RegexOptions.IgnoreCase);
-        private static readonly Regex engi = new Regex("engi|Dell|Conagher|6", RegexOptions.IgnoreCase);
-        private static readonly Regex medic = new Regex("medic|Ludwig|Humboldt|7", RegexOptions.IgnoreCase);
-        private static readonly Regex sniper = new Regex("sniper|Mick|Mundy|8", RegexOptions.IgnoreCase);
-        private static readonly Regex spy = new Regex("spy|french|france|9", RegexOptions.IgnoreCase);
+        private static readonly Regex scout = new Regex("scout|Jeremy|scunt|baby|boston|1", RegexOptions.IgnoreCase);
+        private static readonly Regex soldier = new Regex("soldier|Jane|Doe|solly|rocket|painis|2", RegexOptions.IgnoreCase);
+        private static readonly Regex pyro = new Regex("pyro|pybro|flyro|fire|flame|3", RegexOptions.IgnoreCase);
+        private static readonly Regex demo = new Regex("demo|Tavish|DeGroot|explo|cyclops|scot|4", RegexOptions.IgnoreCase);
+        private static readonly Regex heavy = new Regex("heavy|Mikhail|Misha|hoovy|pootis|fat|russian|5", RegexOptions.IgnoreCase);
+        private static readonly Regex engi = new Regex("engi|Dell|Conagher|builder|construct|tex|6", RegexOptions.IgnoreCase);
+        private static readonly Regex medic = new Regex("medic|Ludwig|Humboldt|heal|doctor|nazi|german|7", RegexOptions.IgnoreCase);
+        private static readonly Regex sniper = new Regex("snip|Mick|Mundy|australia|aussie|zealand|piss|8", RegexOptions.IgnoreCase);
+        private static readonly Regex spy = new Regex("spy|french|france|dad|father|Tom Jones|Jones|burglar|tuxedo|9", RegexOptions.IgnoreCase);
         private void RedeemClass(string userDisplayName, string arguments, string messageID)
         {
             // in order of my preference - if they give me somethign ambiguous it gets the first one on this list.
+            bool randomized = false;
             string joinas;
             if (soldier.IsMatch(arguments))
                 joinas = "soldier";
@@ -272,12 +276,54 @@ namespace TF2SpectatorWin
             else if (scout.IsMatch(arguments))
                 joinas = "scout";
             else
-                joinas = "demoman";
+            {
+                joinas = GetRandom("soldier", "demoman", "engineer", "medic", "spy", "pyro", "heavyweapons", "sniper", "scout");
+                randomized = true;
+            }
 
-            vm.Twitch.SendReplyWithWrapping(messageID, string.Format("Ok, {0}, we will switch to the class '{1}'", userDisplayName, joinas));
+            NotifyTwitchOfClass(userDisplayName, messageID, joinas, randomized);
+
             string cmd = "join_class " + joinas;
             vm.SendCommandAndNoResponse(cmd);
         }
+
+        private Random randomSource = new Random();
+        private string GetRandom(params string[] options)
+        {
+            if (options.Length > 0)
+            {
+                // [0-Length)
+                int rdmIndex = randomSource.Next(options.Length);
+                return options[rdmIndex];
+            }
+            return "random";
+        }
+
+        private void NotifyTwitchOfClass(string userDisplayName, string messageID, string joinas, bool randomized)
+        {
+            string messageFormat;
+            if (IsClassChangeAwaitingRespawn())
+                messageFormat = "Ok, {0}, switching to the {2}class '{1}' on the next respawn";
+            else
+                messageFormat = "Ok, {0}, switching to the {2}class '{1}'";
+
+            string reply = string.Format(messageFormat,
+                userDisplayName,
+                joinas,
+                randomized ? "randomly chosen " : string.Empty);
+
+            vm.Twitch.SendReplyWithWrapping(messageID, reply);
+        }
+
+        private bool IsClassChangeAwaitingRespawn()
+        {
+            bool? noautokill = null;
+            vm.SendCommandAndProcessResponse("hud_classautokill",
+                (hud_classautokill) => noautokill = hud_classautokill.Contains("0"));
+
+            return noautokill ?? false;
+        }
+
         #endregion TF2ClassHandling
 
         #region ColorHandling

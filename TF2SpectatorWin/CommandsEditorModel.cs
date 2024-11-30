@@ -153,7 +153,10 @@ namespace TF2SpectatorWin
             }
             try
             {
-                File.WriteAllLines(ConfigFilePath, lines);
+                lock (vm)
+                {
+                    File.WriteAllLines(ConfigFilePath, lines);
+                }
             }
             catch (Exception ex)
             {
