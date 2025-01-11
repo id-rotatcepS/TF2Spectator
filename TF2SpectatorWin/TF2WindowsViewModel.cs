@@ -1,15 +1,14 @@
-﻿using System;
+﻿using ASPEN;
+
+using AspenWin;
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Input;
-
-using ASPEN;
-
-using AspenWin;
 
 using TF2FrameworkInterface;
 
@@ -17,46 +16,6 @@ namespace TF2SpectatorWin
 {
     internal class TF2WindowsViewModel : INotifyPropertyChanged
     {
-        /// <summary>
-        /// Get the path for this file, 
-        /// trying for the ApplicationData (roaming, %appdata%) or else LocalApplicationData folder
-        /// in the AssemblyTitle subfolder.
-        /// </summary>
-        /// <param name="file"></param>
-        /// <returns></returns>
-        public static string GetConfigFilePath(string file)
-        {
-            string configPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            if (string.IsNullOrEmpty(configPath))
-                configPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-
-            return GetFilePath(configPath, file);
-        }
-
-        private static string GetFilePath(string configPath, string file)
-        {
-            string title = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyTitleAttribute>().Title;
-
-            string folder = Path.Combine(configPath, title);
-
-            if (!Directory.Exists(folder))
-                _ = Directory.CreateDirectory(folder);
-
-            return Path.Combine(folder, file);
-        }
-
-        /// <summary>
-        /// Always in the Local (non-roaming) path. otherwise the same as <see cref="GetConfigFilePath(string)"/>
-        /// </summary>
-        /// <param name="file"></param>
-        /// <returns></returns>
-        public static string GetBackupFilePath(string file)
-        {
-            string configPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-
-            return GetFilePath(configPath, file);
-        }
-
         public event PropertyChangedEventHandler PropertyChanged;
         public void ViewNotification(string propertyName)
         {
@@ -70,7 +29,16 @@ namespace TF2SpectatorWin
             Aspen.Log = new TF2SpectatorLog(this);
 
             // settings load/save to the config file.
-            Aspen.Option = new TF2SpectatorSettings(this);
+            Aspen.Option = new TF2SpectatorSettings();
+            // refresh viewmodel with loaded values.
+            ViewNotification(nameof(TwitchUsername));
+            ViewNotification(nameof(AuthToken));
+            ViewNotification(nameof(TF2Path));
+            ViewNotification(nameof(RconPassword));
+            ViewNotification(nameof(RconPort));
+            ViewNotification(nameof(BotDetectorLog));
+            ViewNotification(nameof(TwitchConnectMessage));
+            ViewNotification(nameof(SteamUUID));
 
             Aspen.Text = new Text();
             //Aspen.Show = text-based dialogs: new DefaultDialogUtility();

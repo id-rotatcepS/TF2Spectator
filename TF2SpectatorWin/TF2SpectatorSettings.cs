@@ -1,10 +1,11 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
-
-using Newtonsoft.Json;
 
 using TF2FrameworkInterface;
 
@@ -77,28 +78,59 @@ namespace TF2SpectatorWin
     /// </summary>
     internal class TF2SpectatorSettings : ASPEN.AspenUserSettings
     {
+        /// <summary>
+        /// Get the path for this file, 
+        /// trying for the ApplicationData (roaming, %appdata%) or else LocalApplicationData folder
+        /// in the AssemblyTitle subfolder.
+        /// </summary>
+        /// <param name="file"></param>
+        /// <returns></returns>
+        public static string GetConfigFilePath(string file)
+        {
+            string configPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            if (string.IsNullOrEmpty(configPath))
+                configPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+            return GetFilePath(configPath, file);
+        }
+
+        private static string GetFilePath(string configPath, string file)
+        {
+            string title = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyTitleAttribute>().Title;
+
+            string folder = Path.Combine(configPath, title);
+
+            if (!Directory.Exists(folder))
+                _ = Directory.CreateDirectory(folder);
+
+            return Path.Combine(folder, file);
+        }
+
+        /// <summary>
+        /// Always in the Local (non-roaming) path. otherwise the same as <see cref="GetConfigFilePath(string)"/>
+        /// </summary>
+        /// <param name="file"></param>
+        /// <returns></returns>
+        public static string GetBackupFilePath(string file)
+        {
+            string configPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+            return GetFilePath(configPath, file);
+        }
+
         internal const string DefaultUserName = "_yourNameHere";
         internal const string DefaultTF2Path = @"C:\Program Files (x86)\Steam\steamapps\common\Team Fortress 2";
         internal const string DefaultConnectMessage = "For TF2 Spectator commands, type !help";
 
         public readonly static string ConfigFilename = "TF2Spectator.config.txt";
-        public readonly static string ConfigFilePath = TF2WindowsViewModel.GetConfigFilePath(ConfigFilename);
+        public readonly static string ConfigFilePath = GetConfigFilePath(ConfigFilename);
 
         public readonly static string BotHandlingConfigFilename = "BotHandlingConfig.json";
-        public readonly static string BotHandlingConfigFilePath = TF2WindowsViewModel.GetConfigFilePath(BotHandlingConfigFilename);
+        public readonly static string BotHandlingConfigFilePath = GetConfigFilePath(BotHandlingConfigFilename);
 
-        public TF2SpectatorSettings(TF2WindowsViewModel vm)
+        public TF2SpectatorSettings()
         {
             LoadConfig();
-            // refresh viewmodel with loaded values.
-            vm.ViewNotification(nameof(TF2WindowsViewModel.TwitchUsername));
-            vm.ViewNotification(nameof(TF2WindowsViewModel.AuthToken));
-            vm.ViewNotification(nameof(TF2WindowsViewModel.TF2Path));
-            vm.ViewNotification(nameof(TF2WindowsViewModel.RconPassword));
-            vm.ViewNotification(nameof(TF2WindowsViewModel.RconPort));
-            vm.ViewNotification(nameof(TF2WindowsViewModel.BotDetectorLog));
-            vm.ViewNotification(nameof(TF2WindowsViewModel.TwitchConnectMessage));
-            vm.ViewNotification(nameof(TF2WindowsViewModel.SteamUUID));
         }
 
         /// <summary>

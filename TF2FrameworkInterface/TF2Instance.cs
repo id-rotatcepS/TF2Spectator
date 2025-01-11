@@ -1,4 +1,5 @@
 ﻿using CoreRCON;
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -16,15 +17,15 @@ namespace TF2FrameworkInterface
 	/// cfg file that must be exec'd to finisih setup.
     /// </summary>
     public class TF2Instance
-	{
+    {
         // tf2_bot_detector: "Invoking commands in the game is done via passing rcon commands to your client. "
 
         public static TF2Instance CreateCommunications(ushort rconPort, string rconPassword)
-		{
-			return new TF2Instance(rconPort, rconPassword);
-		}
+        {
+            return new TF2Instance(rconPort, rconPassword);
+        }
 
-		private static System.Net.IPAddress host = System.Net.IPAddress.Loopback;//"127.0.0.1"
+        private static System.Net.IPAddress host = System.Net.IPAddress.Loopback;//"127.0.0.1"
 
         /// <summary>
         /// Prepares and launches TF2 with Rcon settings.  
@@ -57,27 +58,27 @@ namespace TF2FrameworkInterface
 				;
 			 */
             string hl2Argument =
-				" dummy" + // Dummy option in case user has mismatched command line args in their steam config
-				" -game tf" +
-				" -steam -secure" +  // One or both of these is needed when launching the game directly
-				" -usercon" + // critical for rcon
-				" -high" + // TODO: make this an option
-				// all "+" commands handled below.
-				" -condebug" +
-				" -conclearlog";
+                " dummy" + // Dummy option in case user has mismatched command line args in their steam config
+                " -game tf" +
+                " -steam -secure" +  // One or both of these is needed when launching the game directly
+                " -usercon" + // critical for rcon
+                " -high" + // TODO: make this an option
+                           // all "+" commands handled below.
+                " -condebug" +
+                " -conclearlog";
 
 
-			// exe changed from "hl2.exe" on April 18, 2024
+            // exe changed from "hl2.exe" on April 18, 2024
             string hl2 = Path.Combine(path, @"tf_win64.exe");// 32 bit: @"tf.exe"
             // ... and it stopped accepting "+" console commands/variable settings from the command line.
             bool commandLineConsoleCommandsSupported = false;
-			if (commandLineConsoleCommandsSupported)
-			{
-				// command line commands are in the form "+variable value"
-				foreach (string command in GetRconSetupCommands(rconPassword, rconPort))
-					hl2Argument += " +" + command;
-			}
-			else
+            if (commandLineConsoleCommandsSupported)
+            {
+                // command line commands are in the form "+variable value"
+                foreach (string command in GetRconSetupCommands(rconPassword, rconPort))
+                    hl2Argument += " +" + command;
+            }
+            else
             {
                 WriteRconConfigFile(path, rconPort, rconPassword);
             }
@@ -97,30 +98,30 @@ namespace TF2FrameworkInterface
 
             //TODO "using" may kill process.
             using (Process tf2Launch = new Process())
-			{
-				tf2Launch.StartInfo = new ProcessStartInfo()
-				{
-					FileName = hl2,
-					Arguments = hl2Argument,
-					UseShellExecute = false,
-					RedirectStandardOutput = true,
-					WindowStyle = ProcessWindowStyle.Hidden,
-					CreateNoWindow = true,
-				};
+            {
+                tf2Launch.StartInfo = new ProcessStartInfo()
+                {
+                    FileName = hl2,
+                    Arguments = hl2Argument,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    CreateNoWindow = true,
+                };
 
-				tf2Launch.Start();
-				//string output = pProcess.StandardOutput.ReadToEnd(); //The output result
-				//tf2Launch.WaitForExit();
-				//_ = tf2Launch.ExitCode;
-			}
-		}
+                tf2Launch.Start();
+                //string output = pProcess.StandardOutput.ReadToEnd(); //The output result
+                //tf2Launch.WaitForExit();
+                //_ = tf2Launch.ExitCode;
+            }
+        }
 
         private static List<string> GetRconSetupCommands(string rconPassword, ushort rconPort)
-		{
-			// currently disabling the features tf2_bot_detector uses... no reason to think I need any of them,
-			// and I DO want keep password/port settings enabled in case they're changed mid-session.
-			return new List<string>()
-			{
+        {
+            // currently disabling the features tf2_bot_detector uses... no reason to think I need any of them,
+            // and I DO want keep password/port settings enabled in case they're changed mid-session.
+            return new List<string>()
+            {
 				// all the commands that tf2_bot_detector sets up (and disables many).  Only 4 are needed to make rcon work locally.
 
 				//"developer 1",
@@ -146,7 +147,7 @@ namespace TF2FrameworkInterface
 				
 				"net_start", // critical for rcon
             };
-		}
+        }
 
         /// <summary>
 		/// After <see cref="WriteRconConfigFile(string, ushort, string)"/> the user must run in the console: "exec " + RconConfigFileBaseName
@@ -156,8 +157,8 @@ namespace TF2FrameworkInterface
 
         public static void WriteRconConfigFile(string tfPath, ushort rconPort, string rconPassword)
         {
-			if (string.IsNullOrWhiteSpace(tfPath))
-				return;
+            if (string.IsNullOrWhiteSpace(tfPath))
+                return;
 
             string configSuffix = ".cfg";
             string configCommandsFilepath = Path.Combine(tfPath, "tf", "cfg", RconConfigFileBaseName + configSuffix);
@@ -169,18 +170,29 @@ namespace TF2FrameworkInterface
             }
         }
 
-		private ushort rconPort;
-		private string rconPassword;
+        private ushort rconPort;
+        private string rconPassword;
+        private bool rconConnected;
 
-		private TF2Instance(ushort rconPort, string rconPassword)
+        private TF2Instance(ushort rconPort, string rconPassword)
         {
-			this.rconPort = rconPort;
-			this.rconPassword = rconPassword;
+            this.rconPort = rconPort;
+            this.rconPassword = rconPassword;
+            this.rconConnected = false;
 
             SetUpRCON();
 
+            ConnectRCON();
+        }
+
+        public bool IsConnected => rconConnected;
+
+        private void ConnectRCON()
+        {
+            if (rconConnected)
+                return;
             Task rconTask = TF2RCON.ConnectAsync();
-            bool completed = rconTask.Wait(TF2Instance.COMMAND_TIMEOUT);
+            rconConnected = rconTask.Wait(TF2Instance.COMMAND_TIMEOUT);
         }
 
         private void SetUpRCON()
@@ -188,61 +200,72 @@ namespace TF2FrameworkInterface
             System.Net.IPEndPoint endpoint = new System.Net.IPEndPoint(host, rconPort);
 
             TF2RCON = new RCON(endpoint, rconPassword);
+            TF2RCON.OnDisconnected += () => rconConnected = false;
         }
 
         public RCON TF2RCON { get; private set; }
 
-		/// <summary>
-		/// add to the RCON disconnect event
-		/// </summary>
-		/// <param name="a"></param>
-		public void SetOnDisconnected(Action a)
-			=> TF2RCON.OnDisconnected += a;
+        /// <summary>
+        /// add to the RCON disconnect event
+        /// </summary>
+        /// <param name="a"></param>
+        public void SetOnDisconnected(Action a)
+            => TF2RCON.OnDisconnected += a;
 
-		/// <summary>
-		/// Recommended timeout for command Task.Wait.
-		/// </summary>
+        /// <summary>
+        /// Recommended timeout for command Task.Wait.
+        /// </summary>
         public static readonly int COMMAND_TIMEOUT = 1000 * 2;
-        
-		/// <summary>
+
+        /// <summary>
         /// runs the command and an action to process its result.  
         /// Returns a task governing the execution of the result processing.
         /// Just call .Wait() if you want to be synchronous with the result execution.
+        /// First attempts a synchronous connect if we aren't connected.
         /// </summary>
         /// <param name="command"></param>
         /// <param name="result"></param>
         /// <returns></returns>
         public Task SendCommand(TF2Command command, Action<string> result)
-		{
-			string consoleCommand = command.ConsoleString;
-			//SendHijackCommand(consoleCommand);
-			return SendRCONCommand(consoleCommand, result);
-		}
+        {
+            ConnectRCON();
+            //if (!rconConnected)
+            //    throw CommandNotSentException(command);
 
-		private Task SendRCONCommand(string consoleCommand, Action<string> result)
-		{
-			lock (this)
-			{
-				Task<string> rconTask = TF2RCON.SendCommandAsync(consoleCommand);
+            string consoleCommand = command.ConsoleString;
+            //SendHijackCommand(consoleCommand);
+            return SendRCONCommand(consoleCommand, result);
+        }
 
-				return rconTask.ContinueWith(
-					s => result(ProcessResult(s.Result))
-					);
-			}
-		}
+        private Task SendRCONCommand(string consoleCommand, Action<string> result)
+        {
+            lock (this)
+            {
+                Task<string> rconTask = TF2RCON.SendCommandAsync(consoleCommand);
 
-		/// <summary>
-		/// normally true to convert to 'value' from results like '"cl_variable_name" = "value" (def: "")'
-		/// </summary>
-		public bool ShouldProcessResultValues { get; set; } = true;
+                return rconTask.ContinueWith(
+                    s => result(ProcessResult(s.Result))
+                    );
+            }
+        }
+
+        /// <summary>
+        /// normally true to convert to 'value' from results like '"cl_variable_name" = "value" (def: "")'
+        /// </summary>
+        public bool ShouldProcessResultValues { get; set; } = true;
 
         // handle output that could be like this:
         // "cl_crosshair_file" = "crosshair1" ( def. "" )
         // client archive
         // - help text
         private static readonly Regex variableMatch = new Regex(
-			".*\"(?<variable>[^\"]+)\"\\s*=\\s*\"(?<value>[^\"]+)\".*"
-			);
+            ".*\"(?<variable>[^\"]+)\"\\s*=\\s*\"(?<value>[^\"]+)\".*"
+            );
+        /* example cases that didn't match (other than truly blank string cases) - both are basically blank string but it has help:
+            "\r\n client\r\n - 1 = taunts remain first-person"
+            " ( def. \"1.0\" ) min. 0.001563 max. 1.000000\r\n client archive\r\n - Scale down the main viewport (to reduce GPU impact on CPU profiling)"
+		 */
+
 
         /// <summary>
         /// convert some odd results into something more useful
@@ -252,8 +275,8 @@ namespace TF2FrameworkInterface
         /// <exception cref="NotImplementedException"></exception>
         private string ProcessResult(string result)
         {
-			if (result == null) 
-				return result;
+            if (result == null)
+                return result;
             if (!ShouldProcessResultValues)
                 return result;
 

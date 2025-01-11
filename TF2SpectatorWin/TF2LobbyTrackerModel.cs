@@ -1,4 +1,8 @@
-﻿using System;
+﻿using ASPEN;
+
+using AspenWin;
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -9,10 +13,6 @@ using System.Threading.Tasks;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
-
-using ASPEN;
-
-using AspenWin;
 
 using TF2FrameworkInterface;
 
@@ -50,7 +50,7 @@ namespace TF2SpectatorWin
             try
             {
                 BotConfig.TF2Path = tF2WindowsViewModel.TF2Path;
-                BotConfig.PlayerlistPath = TF2WindowsViewModel.GetConfigFilePath("playerlist.json");
+                BotConfig.PlayerlistPath = TF2SpectatorSettings.GetConfigFilePath("playerlist.json");
                 BotConfig.UserID = SteamUUID;
                 BotHandling handler = new BotHandling(tF2WindowsViewModel.TF2,
                     BotConfig);

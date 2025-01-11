@@ -1,4 +1,6 @@
-﻿using System;
+﻿using AspenWin;
+
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -7,14 +9,12 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
-using AspenWin;
-
 namespace TF2SpectatorWin
 {
     internal class CommandsEditorModel
     {
         public static readonly string CommandsConfigFilename = "TF2SpectatorCommands.tsv";
-        public static readonly string ConfigFilePath = TF2WindowsViewModel.GetConfigFilePath(CommandsConfigFilename);
+        public static readonly string ConfigFilePath = TF2SpectatorSettings.GetConfigFilePath(CommandsConfigFilename);
 
         // NOTE: ObservableCollection is important for DataGrid edit/delete to work correctly
         public ObservableCollection<Config> CommandData { get; }
@@ -137,7 +137,7 @@ namespace TF2SpectatorWin
         {
             if (File.Exists(ConfigFilePath))
                 File.Copy(ConfigFilePath,
-                    TF2WindowsViewModel.GetBackupFilePath(
+                    TF2SpectatorSettings.GetBackupFilePath(
                         string.Format("{0}-{1}",
                         DateTime.Now.ToString("yyyyMMddTHHmmss"),
                         CommandsConfigFilename)));
