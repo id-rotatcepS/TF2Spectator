@@ -99,7 +99,7 @@ namespace TF2SpectatorWin
 
         private static TF2Instance _tf2 = null;
 
-        public bool IsTF2Connected => _tf2 != null;
+        public bool IsTF2Connected => _tf2 != null && _tf2.IsConnected;
 
         internal TF2Instance TF2 => _tf2
             ?? SetTF2Instance();
@@ -148,6 +148,7 @@ namespace TF2SpectatorWin
         /// </summary>
         private void TF2InstanceDisconnected()
         {
+            _tf2?.Dispose();
             _tf2 = null;
             Log.Warning("TF2: reconnecting");
         }
@@ -255,6 +256,7 @@ namespace TF2SpectatorWin
             set
             {
                 Option.Set(nameof(RconPassword), value?.Trim());
+                _tf2?.Dispose();
                 _tf2 = null;
                 ViewNotification(nameof(RconPassword));
                 ViewNotification(nameof(IsTF2Connected));
@@ -267,6 +269,7 @@ namespace TF2SpectatorWin
             set
             {
                 Option.Set(nameof(RconPort), value);
+                _tf2?.Dispose();
                 _tf2 = null;
                 ViewNotification(nameof(RconPort));
                 ViewNotification(nameof(IsTF2Connected));
@@ -540,6 +543,8 @@ namespace TF2SpectatorWin
         internal void ClosingHandler(object sender, CancelEventArgs e)
         {
             SaveConfig();
+            _tf2?.Dispose();
+            _tf2 = null;
         }
 
         public TF2Sound TestSound { get; set; }
