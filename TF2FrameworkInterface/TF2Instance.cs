@@ -187,14 +187,6 @@ namespace TF2FrameworkInterface
 
         public bool IsConnected => rconConnected;
 
-        private void ConnectRCON()
-        {
-            if (rconConnected)
-                return;
-            Task rconTask = TF2RCON.ConnectAsync();
-            rconConnected = rconTask.Wait(TF2Instance.COMMAND_TIMEOUT);
-        }
-
         private void SetUpRCON()
         {
             System.Net.IPEndPoint endpoint = new System.Net.IPEndPoint(host, rconPort);
@@ -203,11 +195,20 @@ namespace TF2FrameworkInterface
             TF2RCON.OnDisconnected += () => rconConnected = false;
         }
 
+        private void ConnectRCON()
+        {
+            if (rconConnected)
+                return;
+            Task rconTask = TF2RCON.ConnectAsync();
+            rconConnected = rconTask.Wait(TF2Instance.COMMAND_TIMEOUT);
+        }
+
         public RCON TF2RCON { get; private set; }
 
         public void Dispose()
         {
             TF2RCON?.Dispose();
+            TF2RCON = null;
         }
 
         /// <summary>
