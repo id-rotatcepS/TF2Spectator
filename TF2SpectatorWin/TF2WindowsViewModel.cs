@@ -522,9 +522,6 @@ namespace TF2SpectatorWin
             }
             catch (Exception e)
             {
-                //TODO catch specific exception when Auth Token expired (401 error).  Clear token and ask user to click again to get new auth token.
-                //     maybe there's a Client.OnXxxx we could use to directly get notified, but that's not really clear.
-
                 Log.ErrorException(e, "Twitch Failed");
             }
         }
@@ -537,7 +534,20 @@ namespace TF2SpectatorWin
 
         private void ConnectTwitchExecute()
         {
-            Log.Info("Connected Twitch: " + Twitch?.TwitchUsername);
+            try
+            {
+                Log.Info("Connected Twitch: " + Twitch?.TwitchUsername);
+            }
+            catch (Exception)
+            {
+                //TODO handle this with a custom exception type that auth got revoked.  But also need to do it with every TwitchInstance.Send... somehow.
+                // refresh option if it got blanked out.
+                AuthToken = TwitchInstance.AuthToken;
+
+                // connect validates / requests auth token, and if it can't be validated (401 error) an exception is thrown
+                DisconnectTwitch();
+                throw;
+            }
         }
 
         internal void ClosingHandler(object sender, CancelEventArgs e)

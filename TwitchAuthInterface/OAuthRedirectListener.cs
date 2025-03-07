@@ -178,6 +178,8 @@ namespace TwitchAuthInterface
 
         /// <summary>
         /// the oauth2 redirect fragment "access_token" value.
+        /// "If a token becomes invalid, your API requests return HTTP status code 401 Unauthorized. 
+        /// When this happens, you’ll need to get a new access token using the appropriate flow for your app."
         /// </summary>
         public virtual string AccessToken { get; }
 

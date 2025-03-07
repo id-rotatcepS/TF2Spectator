@@ -53,26 +53,54 @@ namespace TF2SpectatorWin
         /// </summary>
         public bool HasRedeems => !string.IsNullOrEmpty(TwitchUser?.BroadcasterType);
 
+        ///// <summary>
+        ///// Seconds that were Remaining when the AuthToken was verified at instantiation (or zero).
+        ///// </summary>
+        //public int AuthorizedSecondsRemaining { get; private set; }
+
         public static string AuthToken { get; set; } = "";
 
         public TwitchInstance(string twitchUsername)
         {
             TwitchUsername = twitchUsername;
-            AuthToken = GetAuthToken();
-
-            ConnectionCredentials credentials = new ConnectionCredentials(TwitchUsername, AuthToken);
 
             _TwitchAPI = new TwitchAPI();
+            _TwitchAPI.Settings.ClientId = ClientID;
+
+            //FUTURE we're supposed to validate the auth token every hour per twitch docs, or risk app shutdown.
+            // but first the Validate call has to be a real validate call... TwitchLib update needed?
+            EnsureValidAuthTokenFromUser();
+
             TwitchUser = GetTwitchChannelInfo();
 
-            StartClient(credentials);
+            StartClient(new ConnectionCredentials(TwitchUsername, AuthToken));
         }
 
-        private string GetAuthToken()
+        private void EnsureValidAuthTokenFromUser()
+        {
+            AuthToken = GetInitialAuthToken();
+            _TwitchAPI.Settings.AccessToken = AuthToken;
+
+            while (IsInvalidAccessToken())
+            {
+                // blank value to reflect the failure if next attempt throws an exception.
+                AuthToken = string.Empty;
+
+                AuthToken = GetNewAuthorizedToken();
+                _TwitchAPI.Settings.AccessToken = AuthToken;
+            }
+        }
+
+        private string GetInitialAuthToken()
         {
             if (!string.IsNullOrEmpty(AuthToken))
                 return AuthToken;
 
+            return GetNewAuthorizedToken();
+        }
+
+        private string GetNewAuthorizedToken()
+        {
             // get the value for the twitchOAuth: "access_token"
             TwitchImplicitOAuth oauth = new TwitchImplicitOAuth(
                 //clientName: "TF2SpectatorControl",
@@ -84,18 +112,50 @@ namespace TF2SpectatorWin
             return authResult.AccessToken;
         }
 
+        //// one day in seconds
+        //private readonly int MinimumRemainingAuthorizedSeconds = 60 * 60 * 24;
+        private bool IsInvalidAccessToken()
+        {
+            // TODO twitchlib update needed?
+            // For some reason the validate call times out.
+            // so we use a substitute that throws exception when things are bad.
+            try
+            {
+                _ = GetTwitchChannelInfo();
+            }
+            catch (Exception)
+            {
+                return true;
+            }
+
+            //Task<TwitchLib.Api.Auth.ValidateAccessTokenResponse> validation
+            //    = _TwitchAPI.Auth.ValidateAccessTokenAsync();
+
+            //AuthorizedSecondsRemaining = 0;
+            //if (!validation.Wait(DefaultTimeout))
+            //    throw new TwitchTimeoutException("Checking Access Token");
+            //if (validation.Result == null)
+            //    return true;
+
+            //AuthorizedSecondsRemaining = validation.Result.ExpiresIn;
+            //var days = AuthorizedSecondsRemaining / 60.0 / 60.0 / 24.0; // TODO delete test
+
+            //// don't risk the authorization expiring during this stream.
+            //if (AuthorizedSecondsRemaining < MinimumRemainingAuthorizedSeconds)
+            //    return true;
+
+            return false;
+        }
+
         private User GetTwitchChannelInfo()
         {
-            _TwitchAPI.Settings.ClientId = ClientID;
-            _TwitchAPI.Settings.AccessToken = AuthToken;
-
             Task<GetUsersResponse> usersTask = _TwitchAPI.Helix.Users
                 .GetUsersAsync(logins: new List<string>(new string[] {
                     TwitchUsername
                 }));
 
-            //TODO deal with incomplete result.
-            bool completed = usersTask.Wait(DefaultTimeout);
+            if (!usersTask.Wait(DefaultTimeout))
+                throw new TwitchTimeoutException("Getting user info");
 
             GetUsersResponse getUsersResponse = usersTask.Result;
             return getUsersResponse.Users.First();

@@ -280,6 +280,7 @@
     <Compile Include="TF2LobbyTrackerModel.cs" />
     <Compile Include="TF2SpectatorSettings.cs" />
     <Compile Include="TF2WindowsViewModel.cs" />
+    <Compile Include="TwitchException.cs" />
     <Compile Include="TwitchInstance.cs" />
     <Page Include="Commands.xaml">
       <SubType>Designer</SubType>

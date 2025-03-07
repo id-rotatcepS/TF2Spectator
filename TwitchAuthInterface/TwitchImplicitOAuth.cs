@@ -5,9 +5,15 @@ namespace TwitchAuthInterface
 {
     /// <summary>
     /// Authorize a Twitch client ID using Implicit OAuth to get an Auth Token
+    /// https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/#implicit-grant-flow
     /// </summary>
     public class TwitchImplicitOAuth
     {
+        // https://dev.twitch.tv/docs/authentication/scopes/
+        #region authorization scope names
+        /// <summary>
+        /// channel:read:redemptions 	View Channel Points custom rewards and their redemptions on a channel.
+        /// </summary>
         public const string ReadRewardRedemptions = "channel:read:redemptions";
         //Get Custom Reward
         //Get Custom Reward Redemption
@@ -90,20 +96,23 @@ namespace TwitchAuthInterface
             whispers:read 	View your whisper messages.
             whispers:edit 	Send whisper messages.
          */
+        /// <summary>
+        /// chat:read 	View live stream chat messages.
+        /// </summary>
         public const string ChatRead = "chat:read";
+        /// <summary>
+        /// chat:edit 	Send live stream chat messages.
+        /// </summary>
         public const string ChatSend = "chat:edit";
+        #endregion authorization scope names
 
         private static readonly string TwitchOAuthPrefix = "https://id.twitch.tv/oauth2/authorize";
 
-        //private string TwitchClientName;
-
-        private string TwitchClientID;
+        private readonly string TwitchClientID;
 
         public TwitchImplicitOAuth(
-            //string clientName,
             string clientID)
         {
-            //TwitchClientName = clientName;
             TwitchClientID = clientID;
         }
 
