@@ -28,6 +28,7 @@ namespace TF2SpectatorWin
     {
         private const string ClientID = "xvco4mzu0kr55ah5gr2xxyefx0kvbc";
 
+        public readonly string TwitchChannelname;
         public readonly string TwitchUsername;
 
         // https://dev.twitch.tv/docs/authentication/scopes/
@@ -60,8 +61,9 @@ namespace TF2SpectatorWin
 
         public static string AuthToken { get; set; } = "";
 
-        public TwitchInstance(string twitchUsername)
+        public TwitchInstance(string twitchChannelname, string twitchUsername)
         {
+            TwitchChannelname = twitchChannelname;
             TwitchUsername = twitchUsername;
 
             _TwitchAPI = new TwitchAPI();
@@ -151,7 +153,7 @@ namespace TF2SpectatorWin
         {
             Task<GetUsersResponse> usersTask = _TwitchAPI.Helix.Users
                 .GetUsersAsync(logins: new List<string>(new string[] {
-                    TwitchUsername
+                    TwitchChannelname
                 }));
 
             if (!usersTask.Wait(DefaultTimeout))
@@ -172,7 +174,7 @@ namespace TF2SpectatorWin
             };
             WebSocketClient customClient = new WebSocketClient(clientOptions);
             Client = new TwitchClient(customClient);
-            Client.Initialize(credentials, channel: TwitchUsername);
+            Client.Initialize(credentials, channel: TwitchChannelname);
 
             Client.OnLog += Client_OnLog;
             Client.OnSendReceiveData += Client_OnSendReceiveData;
@@ -466,12 +468,12 @@ namespace TF2SpectatorWin
                 {
                     if (string.IsNullOrEmpty(messageID))
                     {
-                        Client.SendMessage(TwitchUsername, msg);
+                        Client.SendMessage(TwitchChannelname, msg);
                         // only reply to FIRST wrapped message.
                         messageID = null;
                     }
                     else
-                        Client.SendReply(TwitchUsername, messageID, msg);
+                        Client.SendReply(TwitchChannelname, messageID, msg);
                 }
         }
         public void SendReplyWithWrapping(string messageID, string message)

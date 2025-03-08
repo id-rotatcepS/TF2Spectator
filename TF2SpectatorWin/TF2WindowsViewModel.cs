@@ -167,7 +167,8 @@ namespace TF2SpectatorWin
             try
             {
                 _twitch?.Dispose();
-                return _twitch = CreateTwitchInstance(TwitchUsername);
+                //FUTURE different sources for channel and (chatbot) user
+                return _twitch = CreateTwitchInstance(twitchChannelname: TwitchUsername, TwitchUsername);
             }
             finally
             {
@@ -175,11 +176,11 @@ namespace TF2SpectatorWin
             }
         }
 
-        private TwitchInstance CreateTwitchInstance(string twitchUsername)
+        private TwitchInstance CreateTwitchInstance(string twitchChannelname, string twitchUsername)
         {
             try
             {
-                TwitchInstance twitch = new TwitchInstance(twitchUsername)
+                TwitchInstance twitch = new TwitchInstance(twitchChannelname, twitchUsername)
                 {
                     ConnectMessage = TwitchConnectMessage
                 };
@@ -536,7 +537,7 @@ namespace TF2SpectatorWin
         {
             try
             {
-                Log.Info("Connected Twitch: " + Twitch?.TwitchUsername);
+                Log.Info("Connected Twitch: " + Twitch?.TwitchUsername + " on channel " + Twitch?.TwitchChannelname);
             }
             catch (Exception)
             {
