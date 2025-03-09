@@ -1,32 +1,34 @@
 ﻿using Microsoft.Extensions.Logging;
 
-using SimpleExpressionEvaluator;
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
+using System.Text;
 using System.Threading.Tasks;
 
 using TwitchAuthInterface;
 
 using TwitchLib.Api;
+using TwitchLib.Api.Core.Enums;
+using TwitchLib.Api.Helix;
 using TwitchLib.Api.Helix.Models.Users.GetUsers;
 using TwitchLib.Client;
 using TwitchLib.Client.Events;
 using TwitchLib.Client.Models;
 using TwitchLib.Communication.Clients;
 using TwitchLib.Communication.Models;
-using TwitchLib.PubSub;
-using TwitchLib.PubSub.Models.Responses.Messages.Redemption;
+using TwitchLib.EventSub.Core.SubscriptionTypes.Channel;
+using TwitchLib.EventSub.Websockets;
+using TwitchLib.EventSub.Websockets.Core.EventArgs;
+using TwitchLib.EventSub.Websockets.Core.EventArgs.Channel;
 
 namespace TF2SpectatorWin
 {
-
     public class TwitchInstance : IDisposable
     {
         private const string ClientID = "xvco4mzu0kr55ah5gr2xxyefx0kvbc";
 
+        public readonly string TwitchChannelname;
         public readonly string TwitchUsername;
 
         // https://dev.twitch.tv/docs/authentication/scopes/
@@ -40,7 +42,9 @@ namespace TF2SpectatorWin
             };
 
         private TwitchClient Client;
-        private TwitchPubSub Pubsub;
+        private EventSubWebsocketClient _EventSubClient;
+        private ILoggerFactory _ESLoggerFactory;
+        private readonly TwitchAPI _TwitchAPI;
 
         private readonly User TwitchUser;
 
@@ -50,25 +54,55 @@ namespace TF2SpectatorWin
         /// </summary>
         public bool HasRedeems => !string.IsNullOrEmpty(TwitchUser?.BroadcasterType);
 
+        ///// <summary>
+        ///// Seconds that were Remaining when the AuthToken was verified at instantiation (or zero).
+        ///// </summary>
+        //public int AuthorizedSecondsRemaining { get; private set; }
+
         public static string AuthToken { get; set; } = "";
 
-        public TwitchInstance(string twitchUsername)
+        public TwitchInstance(string twitchChannelname, string twitchUsername)
         {
+            TwitchChannelname = twitchChannelname;
             TwitchUsername = twitchUsername;
-            AuthToken = GetAuthToken();
 
-            ConnectionCredentials credentials = new ConnectionCredentials(TwitchUsername, AuthToken);
+            _TwitchAPI = new TwitchAPI();
+            _TwitchAPI.Settings.ClientId = ClientID;
+
+            //FUTURE we're supposed to validate the auth token every hour per twitch docs, or risk app shutdown.
+            // but first the Validate call has to be a real validate call... TwitchLib update needed?
+            EnsureValidAuthTokenFromUser();
 
             TwitchUser = GetTwitchChannelInfo();
 
-            StartClient(credentials);
+            StartClient(new ConnectionCredentials(TwitchUsername, AuthToken));
         }
 
-        private string GetAuthToken()
+        private void EnsureValidAuthTokenFromUser()
+        {
+            AuthToken = GetInitialAuthToken();
+            _TwitchAPI.Settings.AccessToken = AuthToken;
+
+            while (IsInvalidAccessToken())
+            {
+                // blank value to reflect the failure if next attempt throws an exception.
+                AuthToken = string.Empty;
+
+                AuthToken = GetNewAuthorizedToken();
+                _TwitchAPI.Settings.AccessToken = AuthToken;
+            }
+        }
+
+        private string GetInitialAuthToken()
         {
             if (!string.IsNullOrEmpty(AuthToken))
                 return AuthToken;
 
+            return GetNewAuthorizedToken();
+        }
+
+        private string GetNewAuthorizedToken()
+        {
             // get the value for the twitchOAuth: "access_token"
             TwitchImplicitOAuth oauth = new TwitchImplicitOAuth(
                 //clientName: "TF2SpectatorControl",
@@ -80,19 +114,50 @@ namespace TF2SpectatorWin
             return authResult.AccessToken;
         }
 
+        //// one day in seconds
+        //private readonly int MinimumRemainingAuthorizedSeconds = 60 * 60 * 24;
+        private bool IsInvalidAccessToken()
+        {
+            // TODO twitchlib update needed?
+            // For some reason the validate call times out.
+            // so we use a substitute that throws exception when things are bad.
+            try
+            {
+                _ = GetTwitchChannelInfo();
+            }
+            catch (Exception)
+            {
+                return true;
+            }
+
+            //Task<TwitchLib.Api.Auth.ValidateAccessTokenResponse> validation
+            //    = _TwitchAPI.Auth.ValidateAccessTokenAsync();
+
+            //AuthorizedSecondsRemaining = 0;
+            //if (!validation.Wait(DefaultTimeout))
+            //    throw new TwitchTimeoutException("Checking Access Token");
+            //if (validation.Result == null)
+            //    return true;
+
+            //AuthorizedSecondsRemaining = validation.Result.ExpiresIn;
+            //var days = AuthorizedSecondsRemaining / 60.0 / 60.0 / 24.0; // TODO delete test
+
+            //// don't risk the authorization expiring during this stream.
+            //if (AuthorizedSecondsRemaining < MinimumRemainingAuthorizedSeconds)
+            //    return true;
+
+            return false;
+        }
+
         private User GetTwitchChannelInfo()
         {
-            TwitchAPI twitchAPI = new TwitchAPI();
-            twitchAPI.Settings.ClientId = ClientID;
-            twitchAPI.Settings.AccessToken = AuthToken;
-
-            Task<GetUsersResponse> usersTask = twitchAPI.Helix.Users
+            Task<GetUsersResponse> usersTask = _TwitchAPI.Helix.Users
                 .GetUsersAsync(logins: new List<string>(new string[] {
-                    TwitchUsername
+                    TwitchChannelname
                 }));
 
-            //TODO deal with incomplete result.
-            bool completed = usersTask.Wait(1000 * 15);
+            if (!usersTask.Wait(DefaultTimeout))
+                throw new TwitchTimeoutException("Getting user info");
 
             GetUsersResponse getUsersResponse = usersTask.Result;
             return getUsersResponse.Users.First();
@@ -100,7 +165,7 @@ namespace TF2SpectatorWin
 
         private void StartClient(ConnectionCredentials credentials)
         {
-            StartPubSubWhenNeeded();
+            StartEventSubWhenNeeded();
 
             ClientOptions clientOptions = new ClientOptions
             {
@@ -109,7 +174,7 @@ namespace TF2SpectatorWin
             };
             WebSocketClient customClient = new WebSocketClient(clientOptions);
             Client = new TwitchClient(customClient);
-            Client.Initialize(credentials, channel: TwitchUsername);
+            Client.Initialize(credentials, channel: TwitchChannelname);
 
             Client.OnLog += Client_OnLog;
             Client.OnSendReceiveData += Client_OnSendReceiveData;
@@ -126,61 +191,107 @@ namespace TF2SpectatorWin
             _ = Client.Connect();
         }
 
+        private TimeSpan DefaultTimeout = TimeSpan.FromSeconds(10);
         public void Dispose()
         {
             Client.Disconnect();
-            Pubsub?.Disconnect();
+            //FUTURE synchronizing disconnect so that disposing the loggerfactory dispose doesn't conflict - could probably do it as an event instead.
+            _ = _EventSubClient?.DisconnectAsync().Wait(DefaultTimeout);
+            _EventSubClient = null;
+            _ESLoggerFactory?.Dispose();
+            _ESLoggerFactory = null;
         }
 
-        private void StartPubSubWhenNeeded()
+        private void StartEventSubWhenNeeded()
         {
-            // PubSub is only being used for Redemptions, and redemptions are only valid for affiliate/partner accounts.
+            // EventSub is only being used for Redemptions, and redemptions are only valid for affiliate/partner accounts.
             // (The Internet implies we'll get a BADAUTH for attempting this with default accounts)
             if (!HasRedeems)
                 return;
 
-            using (ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddConsole()))
+            _ESLoggerFactory?.Dispose(); // just in case.
+            _ESLoggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+
+            _EventSubClient = new EventSubWebsocketClient(_ESLoggerFactory);
+
+            // sub format: connect, post-connection send topics.
+            _EventSubClient.WebsocketConnected += EventSub_WebsocketConnected;
+            _EventSubClient.WebsocketDisconnected += EventSub_WebsocketDisconnected;
+            _EventSubClient.ErrorOccurred += EventSub_ErrorOccurred;
+
+            // events for subscriptions we will be registering:
+            _EventSubClient.ChannelPointsCustomRewardRedemptionAdd += EventSub_ChannelPointsCustomRewardRedemptionAdd;
+            //  EventSubClient.ChannelPointsCustomRewardRedemptionUpdate // update that status=fullfilled or cancelled.
+
+            //FUTURE pass reconnect URL from Twitch?
+            _ = _EventSubClient.ConnectAsync();
+            //FUTURE use EventSubClient.ReconnectAsync somewhere?
+            //      EventSubClient.WebsocketReconnected +=
+        }
+
+        private async Task EventSub_WebsocketConnected(object sender, WebsocketConnectedArgs args)
+        {
+            //_logger.LogInformation
+            Console.WriteLine($"Websocket {_EventSubClient.SessionId} connected!");
+
+            if (args.IsRequestedReconnect)
+                return;
+
+            EventSub es = _TwitchAPI.Helix.EventSub;
+
+            await SubscribeToChannelPointsCustomRewardRedemptionAdd(es);
+        }
+
+        private async Task SubscribeToChannelPointsCustomRewardRedemptionAdd(EventSub es)
+        {
+            //TwitchLib.Api.Helix.Models.EventSub.CreateEventSubSubscriptionResponse subscriptionResponse
+            _ = await es.CreateEventSubSubscriptionAsync(
+                // https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/
+                //Channel Points Custom Reward Redemption Add 	
+                //channel.channel_points_custom_reward_redemption.add 	1 	
+                //A viewer has redeemed a custom channel points reward on the specified channel.
+                type: "channel.channel_points_custom_reward_redemption.add", version: "1",
+                //Subscription-specific parameters.
+                //Pass in the broadcaster user ID for the channel you want to receive channel points custom reward redemption notifications for.
+                //You can optionally pass in a reward id to only receive notifications for a specific reward.
+                condition: new Dictionary<string, string>()
+                {
+                    ["broadcaster_user_id"] = TwitchUser.Id,
+                },
+                EventSubTransportMethod.Websocket, websocketSessionId: _EventSubClient.SessionId);
+        }
+
+        private async Task EventSub_WebsocketDisconnected(object sender, EventArgs args)
+        {
+            //_logger.LogError
+            Console.WriteLine($"Websocket eventsub {_EventSubClient.SessionId} disconnected!");
+
+            int delay = 1000;
+            while (!await _EventSubClient.ReconnectAsync())
             {
-                ILogger<TwitchPubSub> logger = factory.CreateLogger<TwitchPubSub>();
-                Pubsub = new TwitchPubSub(logger);
+                //_logger.LogError
+                Console.WriteLine("Websocket reconnect failed!");
+                await Task.Delay(delay);
+
+                // "... You should implement a ... reconnect strategy with exponential backoff"
+                delay = 2 * delay;
+                if (delay > 1000 * 30)
+                    delay = 1000;
             }
-            //Pubsub.OnLog += Client_OnLog;
-
-            Pubsub.OnListenResponse += Pubsub_OnListenResponse;
-            Pubsub.ListenToChannelPoints(channelTwitchId: TwitchUser.Id);
-
-            Pubsub.OnChannelPointsRewardRedeemed += Pubsub_OnChannelPointsRewardRedeemed;
-
-            // odd pubsub format... connect, within 15 seconds of connection send topics.
-            Pubsub.OnPubSubServiceClosed += Pubsub_OnPubSubServiceClosed;
-            Pubsub.OnPubSubServiceError += Pubsub_OnPubSubServiceError;
-            Pubsub.OnPubSubServiceConnected += (sender, e) =>
-            {
-                (sender as TwitchPubSub).SendTopics(AuthToken);
-            };
-            Pubsub.Connect();
         }
 
-        private void Pubsub_OnPubSubServiceClosed(object sender, EventArgs e)
+        private Task EventSub_ErrorOccurred(object sender, ErrorOccuredArgs args)
         {
-            Console.WriteLine("pubsub CLOSED"); // no special event
+            Console.WriteLine("eventsub ERROR " + args.Exception?.ToString());
+            //TODO better task answer?
+            return Task.CompletedTask;
         }
 
-        private void Pubsub_OnPubSubServiceError(object sender, TwitchLib.PubSub.Events.OnPubSubServiceErrorArgs e)
+        private Task EventSub_ChannelPointsCustomRewardRedemptionAdd(object sender, ChannelPointsCustomRewardRedemptionArgs e)
         {
-            Console.WriteLine("pubsub ERROR " + e.Exception?.ToString());
-        }
-
-        private void Pubsub_OnListenResponse(object sender, TwitchLib.PubSub.Events.OnListenResponseArgs e)
-        {
-            Console.WriteLine("pubsub heard " + (e.Successful ? "succeeded" : "failed") + ":" + e.Response?.Error + ":" + e.Topic);
-        }
-
-        private void Pubsub_OnChannelPointsRewardRedeemed(object sender, TwitchLib.PubSub.Events.OnChannelPointsRewardRedeemedArgs e)
-        {
-            Redemption redemption = e.RewardRedeemed.Redemption;
+            ChannelPointsCustomRewardRedemption redemption = e.Notification.Payload.Event;
             ChatCommandDetails commandDetails = GetRedeemCommandByNameOrID(redemption);
-            string userName = redemption.User.DisplayName;
+            string userName = redemption.UserName;
             string userInput = redemption.UserInput;
             //the redemption.Id is not a message id to reply to. Using it causes no message at all
             string messageID = null;
@@ -191,9 +302,12 @@ namespace TF2SpectatorWin
                     userName,
                     userInput,
                     messageID);
+
+            //TODO better task answer? consider adding simple Async version of "InvokeCommand" above
+            return Task.CompletedTask;
         }
 
-        private ChatCommandDetails GetRedeemCommandByNameOrID(Redemption redemption)
+        private ChatCommandDetails GetRedeemCommandByNameOrID(ChannelPointsCustomRewardRedemption redemption)
         {
             ChatCommandDetails byID = GetRedeemCommand(redemption.Reward.Id);
             if (byID != null)
@@ -292,10 +406,15 @@ namespace TF2SpectatorWin
             string message;
             if (string.IsNullOrEmpty(arguments))
             {
-                message = "\"!help commandname\" for more info on these commands: ";
+                StringBuilder commandList = new StringBuilder();
                 foreach (string key in ChatCommands.Keys)
                     if (key.StartsWith("!"))
-                        message += " " + GetMatchingCommandName(key);
+                        _ = commandList.Append(" ").Append(GetMatchingCommandName(key));
+                if (commandList.Length == 0)
+                    return;
+
+                message = "\"!help commandname\" for more info on these commands: "
+                    + commandList.ToString();
             }
             else
             {
@@ -349,12 +468,12 @@ namespace TF2SpectatorWin
                 {
                     if (string.IsNullOrEmpty(messageID))
                     {
-                        Client.SendMessage(TwitchUsername, msg);
+                        Client.SendMessage(TwitchChannelname, msg);
                         // only reply to FIRST wrapped message.
                         messageID = null;
                     }
                     else
-                        Client.SendReply(TwitchUsername, messageID, msg);
+                        Client.SendReply(TwitchChannelname, messageID, msg);
                 }
         }
         public void SendReplyWithWrapping(string messageID, string message)
@@ -420,7 +539,7 @@ namespace TF2SpectatorWin
             string msg = e.ChatMessage.Message;
 
             // Math in chat feature
-            string response = GetMathAnswer(msg);
+            string response = mathChat.GetMathAnswer(msg);
             if (response != null)
             {
                 SendReplyWithWrapping(e.ChatMessage.Id, response);
@@ -434,82 +553,7 @@ namespace TF2SpectatorWin
             //    client.TimeoutUser(e.ChatMessage.Channel, e.ChatMessage.Username, TimeSpan.FromMinutes(30), "Bad word! 30 minute timeout!");
         }
 
-        // only try messages that have at least two numbers and between them something mathish other than a decimal point.
-        private readonly Regex mathRegex = new Regex("\\d.*[-+/*^\\p{IsMathematicalOperators}\\p{Sm}].*\\d");
-        private readonly ExpressionEvaluator mathDoer = new ExpressionEvaluator();
-        private string GetMathAnswer(string msg)
-        {
-            //consider stripping before/after text one might enter, like "what is () = ?"
-
-            if (!mathRegex.IsMatch(msg))
-                return null;
-
-            string equationAnswer = GetEquationAnswer(msg);
-            if (equationAnswer != null)
-                return equationAnswer;
-
-            return GetMathResponseOneSide(msg);
-        }
-
-        private string GetEquationAnswer(string msg)
-        {
-            string[] halves = msg.Split('=');
-            if (halves.Length != 2)
-                return null;
-
-            string lhs = halves[0];
-            string rhs = halves[1];
-
-            string lhsAnswer = GetMathAnswerOneSide(lhs);
-            string rhsAnswer = GetMathAnswerOneSide(rhs);
-            if (lhsAnswer != null && rhsAnswer != null)
-                return GetEqualityAnswer(lhs, rhs, lhsAnswer, rhsAnswer);
-
-            if (lhsAnswer != null)
-                return lhsAnswer + " = " + rhs;
-            if (rhsAnswer != null)
-                return lhs + " = " + rhsAnswer;
-            return null;
-        }
-
-        private string GetMathAnswerOneSide(string msg)
-        {
-            try
-            {
-                return mathDoer.Evaluate(msg).ToString();
-            }
-            catch (Exception ex)
-            {
-                //Console.WriteLine(ex.Message);
-                return null;
-            }
-        }
-
-        private string GetEqualityAnswer(string lhs, string rhs, string lhsAnswer, string rhsAnswer)
-        {
-            bool leftSimplified = !lhs.Trim().Equals(lhsAnswer.Trim());
-            bool rightSimplified = !rhs.Trim().Equals(rhsAnswer.Trim());
-
-            if (!lhsAnswer.Equals(rhsAnswer))
-                return "No. " +
-                    lhs + (leftSimplified ? (" = " + lhsAnswer) : "") +
-                    " is not the same as " +
-                    rhs + (rightSimplified ? (" = " + rhsAnswer) : "");
-
-            if (leftSimplified && rightSimplified)
-                return "Yes, " + lhsAnswer + " = " + lhs + " = " + rhs;
-            else
-                return "Yes, " + lhs + " = " + rhs;
-        }
-
-        private string GetMathResponseOneSide(string msg)
-        {
-            string mathAnswer = GetMathAnswerOneSide(msg);
-            if (mathAnswer == null)
-                return null;
-
-            return (msg + " = " + mathAnswer);
-        }
+        private MathChat mathChat = new MathChat();
 
         private void Client_OnWhisperReceived(object sender, OnWhisperReceivedArgs e)
         {

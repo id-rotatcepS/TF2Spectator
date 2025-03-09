@@ -1,15 +1,14 @@
-﻿using System;
+﻿using ASPEN;
+
+using AspenWin;
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Input;
-
-using ASPEN;
-
-using AspenWin;
 
 using TF2FrameworkInterface;
 
@@ -17,46 +16,6 @@ namespace TF2SpectatorWin
 {
     internal class TF2WindowsViewModel : INotifyPropertyChanged
     {
-        /// <summary>
-        /// Get the path for this file, 
-        /// trying for the ApplicationData (roaming, %appdata%) or else LocalApplicationData folder
-        /// in the AssemblyTitle subfolder.
-        /// </summary>
-        /// <param name="file"></param>
-        /// <returns></returns>
-        public static string GetConfigFilePath(string file)
-        {
-            string configPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            if (string.IsNullOrEmpty(configPath))
-                configPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-
-            return GetFilePath(configPath, file);
-        }
-
-        private static string GetFilePath(string configPath, string file)
-        {
-            string title = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyTitleAttribute>().Title;
-
-            string folder = Path.Combine(configPath, title);
-
-            if (!Directory.Exists(folder))
-                _ = Directory.CreateDirectory(folder);
-
-            return Path.Combine(folder, file);
-        }
-
-        /// <summary>
-        /// Always in the Local (non-roaming) path. otherwise the same as <see cref="GetConfigFilePath(string)"/>
-        /// </summary>
-        /// <param name="file"></param>
-        /// <returns></returns>
-        public static string GetBackupFilePath(string file)
-        {
-            string configPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-
-            return GetFilePath(configPath, file);
-        }
-
         public event PropertyChangedEventHandler PropertyChanged;
         public void ViewNotification(string propertyName)
         {
@@ -70,7 +29,16 @@ namespace TF2SpectatorWin
             Aspen.Log = new TF2SpectatorLog(this);
 
             // settings load/save to the config file.
-            Aspen.Option = new TF2SpectatorSettings(this);
+            Aspen.Option = new TF2SpectatorSettings();
+            // refresh viewmodel with loaded values.
+            ViewNotification(nameof(TwitchUsername));
+            ViewNotification(nameof(AuthToken));
+            ViewNotification(nameof(TF2Path));
+            ViewNotification(nameof(RconPassword));
+            ViewNotification(nameof(RconPort));
+            ViewNotification(nameof(BotDetectorLog));
+            ViewNotification(nameof(TwitchConnectMessage));
+            ViewNotification(nameof(SteamUUID));
 
             Aspen.Text = new Text();
             //Aspen.Show = text-based dialogs: new DefaultDialogUtility();
@@ -131,7 +99,7 @@ namespace TF2SpectatorWin
 
         private static TF2Instance _tf2 = null;
 
-        public bool IsTF2Connected => _tf2 != null;
+        public bool IsTF2Connected => _tf2 != null && _tf2.IsConnected;
 
         internal TF2Instance TF2 => _tf2
             ?? SetTF2Instance();
@@ -180,6 +148,7 @@ namespace TF2SpectatorWin
         /// </summary>
         private void TF2InstanceDisconnected()
         {
+            _tf2?.Dispose();
             _tf2 = null;
             Log.Warning("TF2: reconnecting");
         }
@@ -198,7 +167,8 @@ namespace TF2SpectatorWin
             try
             {
                 _twitch?.Dispose();
-                return _twitch = CreateTwitchInstance(TwitchUsername);
+                //FUTURE different sources for channel and (chatbot) user
+                return _twitch = CreateTwitchInstance(twitchChannelname: TwitchUsername, TwitchUsername);
             }
             finally
             {
@@ -206,11 +176,11 @@ namespace TF2SpectatorWin
             }
         }
 
-        private TwitchInstance CreateTwitchInstance(string twitchUsername)
+        private TwitchInstance CreateTwitchInstance(string twitchChannelname, string twitchUsername)
         {
             try
             {
-                TwitchInstance twitch = new TwitchInstance(twitchUsername)
+                TwitchInstance twitch = new TwitchInstance(twitchChannelname, twitchUsername)
                 {
                     ConnectMessage = TwitchConnectMessage
                 };
@@ -287,6 +257,7 @@ namespace TF2SpectatorWin
             set
             {
                 Option.Set(nameof(RconPassword), value?.Trim());
+                _tf2?.Dispose();
                 _tf2 = null;
                 ViewNotification(nameof(RconPassword));
                 ViewNotification(nameof(IsTF2Connected));
@@ -299,6 +270,7 @@ namespace TF2SpectatorWin
             set
             {
                 Option.Set(nameof(RconPort), value);
+                _tf2?.Dispose();
                 _tf2 = null;
                 ViewNotification(nameof(RconPort));
                 ViewNotification(nameof(IsTF2Connected));
@@ -551,9 +523,6 @@ namespace TF2SpectatorWin
             }
             catch (Exception e)
             {
-                //TODO catch specific exception when Auth Token expired (401 error).  Clear token and ask user to click again to get new auth token.
-                //     maybe there's a Client.OnXxxx we could use to directly get notified, but that's not really clear.
-
                 Log.ErrorException(e, "Twitch Failed");
             }
         }
@@ -566,12 +535,27 @@ namespace TF2SpectatorWin
 
         private void ConnectTwitchExecute()
         {
-            Log.Info("Connected Twitch: " + Twitch?.TwitchUsername);
+            try
+            {
+                Log.Info("Connected Twitch: " + Twitch?.TwitchUsername + " on channel " + Twitch?.TwitchChannelname);
+            }
+            catch (Exception)
+            {
+                //TODO handle this with a custom exception type that auth got revoked.  But also need to do it with every TwitchInstance.Send... somehow.
+                // refresh option if it got blanked out.
+                AuthToken = TwitchInstance.AuthToken;
+
+                // connect validates / requests auth token, and if it can't be validated (401 error) an exception is thrown
+                DisconnectTwitch();
+                throw;
+            }
         }
 
         internal void ClosingHandler(object sender, CancelEventArgs e)
         {
             SaveConfig();
+            _tf2?.Dispose();
+            _tf2 = null;
         }
 
         public TF2Sound TestSound { get; set; }
