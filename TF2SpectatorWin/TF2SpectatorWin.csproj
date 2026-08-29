@@ -72,9 +72,6 @@
     <ApplicationIcon>craiyon_122236_tf2_logo_sphere cropped.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Aspen">
-      <HintPath>..\..\Aspen\AspenWin\bin\Debug\Aspen.dll</HintPath>
-    </Reference>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Bcl.AsyncInterfaces.8.0.0\lib\net462\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
     </Reference>
@@ -332,10 +329,6 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\TF2FrameworkInterface\TF2FrameworkInterface.csproj">
-      <Project>{c08020b2-eeac-4238-8b2b-91ced456e026}</Project>
-      <Name>TF2FrameworkInterface</Name>
-    </ProjectReference>
     <ProjectReference Include="..\TwitchAuthInterface\TwitchAuthInterface.csproj">
       <Project>{CB9E164B-0028-4446-B345-A9BDE3E597B1}</Project>
       <Name>TwitchAuthInterface</Name>
