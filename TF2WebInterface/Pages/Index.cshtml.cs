@@ -21,7 +21,8 @@ namespace TF2WebInterface.Pages
 
         public void OnGet()
         {
-            TF2FrameworkInterface.TF2Instance x = TF2FrameworkInterface.TF2Instance.CreateCommunications();
+            //TODO FIXME if we ever continue with this, it needs rcon sources
+            TF2FrameworkInterface.TF2Instance x = TF2FrameworkInterface.TF2Instance.CreateCommunications(rconPort: 0, rconPassword: "");
             x.SendCommand(new TF2FrameworkInterface.StringCommand("echo web"), (s) => OutputString = s);
         }
     }

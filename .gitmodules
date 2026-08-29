@@ -1,3 +1,6 @@
 [submodule "ASPEN"]
 	path = ASPEN
 	url = https://github.com/id-rotatcepS/ASPEN.git
+[submodule "TF2FrameworkInterface"]
+	path = TF2FrameworkInterface
+	url = https://github.com/id-rotatcepS/TF2FrameworkInterface.git

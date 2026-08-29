@@ -329,6 +329,14 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ASPEN\Aspen.csproj">
+      <Project>{5a928fd2-daba-4259-ad0b-d04d2dff136e}</Project>
+      <Name>Aspen</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\TF2FrameworkInterface\TF2FrameworkInterface.csproj">
+      <Project>{c08020b2-eeac-4238-8b2b-91ced456e026}</Project>
+      <Name>TF2FrameworkInterface</Name>
+    </ProjectReference>
     <ProjectReference Include="..\TwitchAuthInterface\TwitchAuthInterface.csproj">
       <Project>{CB9E164B-0028-4446-B345-A9BDE3E597B1}</Project>
       <Name>TwitchAuthInterface</Name>
