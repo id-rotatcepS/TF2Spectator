@@ -167,6 +167,12 @@ namespace TF2SpectatorWin
         {
             StartEventSubWhenNeeded();
 
+            // we assume the first connect attempt will work... they can restart if it doesn't.
+            _ = NewClient(credentials);
+        }
+
+        private bool NewClient(ConnectionCredentials credentials)
+        {
             ClientOptions clientOptions = new ClientOptions
             {
                 MessagesAllowedInPeriod = 750,
@@ -180,6 +186,7 @@ namespace TF2SpectatorWin
             Client.OnSendReceiveData += Client_OnSendReceiveData;
             Client.OnUnaccountedFor += Client_OnUnaccountedFor;
             Client.OnConnected += Client_OnConnected;
+            Client.OnDisconnected += Client_OnDisconnected;
             Client.OnJoinedChannel += Client_OnJoinedChannel;
 
             Client.OnMessageReceived += Client_OnMessageReceived;
@@ -188,18 +195,31 @@ namespace TF2SpectatorWin
 
             Client.OnChatCommandReceived += Client_OnChatCommandReceived;
 
-            _ = Client.Connect();
+            return Client.Connect();
         }
 
         private TimeSpan DefaultTimeout = TimeSpan.FromSeconds(10);
+        private bool disposing = false; // NOTE this was not carefully designed, probably results in race conditions.
         public void Dispose()
         {
+            disposing = true;
+            Client.OnDisconnected -= Client_OnDisconnected;
+            Client.OnLog -= Client_OnLog;
+            Client.OnSendReceiveData -= Client_OnSendReceiveData;
+            Client.OnUnaccountedFor -= Client_OnUnaccountedFor;
+            Client.OnConnected -= Client_OnConnected;
+            Client.OnJoinedChannel -= Client_OnJoinedChannel;
+            Client.OnMessageReceived -= Client_OnMessageReceived;
+            Client.OnWhisperReceived -= Client_OnWhisperReceived;
+            Client.OnNewSubscriber -= Client_OnNewSubscriber;
+            Client.OnChatCommandReceived -= Client_OnChatCommandReceived;
             Client.Disconnect();
             //FUTURE synchronizing disconnect so that disposing the loggerfactory dispose doesn't conflict - could probably do it as an event instead.
             _ = _EventSubClient?.DisconnectAsync().Wait(DefaultTimeout);
             _EventSubClient = null;
             _ESLoggerFactory?.Dispose();
             _ESLoggerFactory = null;
+            disposing = false;
         }
 
         private void StartEventSubWhenNeeded()
@@ -232,7 +252,7 @@ namespace TF2SpectatorWin
         private async Task EventSub_WebsocketConnected(object sender, WebsocketConnectedArgs args)
         {
             //_logger.LogInformation
-            Console.WriteLine($"Websocket {_EventSubClient.SessionId} connected!");
+            LogStatus($"Websocket {_EventSubClient.SessionId} connected!");
 
             if (args.IsRequestedReconnect)
                 return;
@@ -240,6 +260,15 @@ namespace TF2SpectatorWin
             EventSub es = _TwitchAPI.Helix.EventSub;
 
             await SubscribeToChannelPointsCustomRewardRedemptionAdd(es);
+        }
+
+        private void LogStatus(string message)
+        {
+            LogError(message);
+        }
+        private void LogError(string message)
+        {
+            Console.WriteLine(message);
         }
 
         private async Task SubscribeToChannelPointsCustomRewardRedemptionAdd(EventSub es)
@@ -264,13 +293,13 @@ namespace TF2SpectatorWin
         private async Task EventSub_WebsocketDisconnected(object sender, EventArgs args)
         {
             //_logger.LogError
-            Console.WriteLine($"Websocket eventsub {_EventSubClient.SessionId} disconnected!");
+            LogError($"Websocket eventsub {_EventSubClient.SessionId} disconnected!");
 
             int delay = 1000;
             while (!await _EventSubClient.ReconnectAsync())
             {
                 //_logger.LogError
-                Console.WriteLine("Websocket reconnect failed!");
+                LogError("Websocket reconnect failed!");
                 await Task.Delay(delay);
 
                 // "... You should implement a ... reconnect strategy with exponential backoff"
@@ -282,7 +311,7 @@ namespace TF2SpectatorWin
 
         private Task EventSub_ErrorOccurred(object sender, ErrorOccuredArgs args)
         {
-            Console.WriteLine("eventsub ERROR " + args.Exception?.ToString());
+            LogError("eventsub ERROR " + args.Exception?.ToString());
             //TODO better task answer?
             return Task.CompletedTask;
         }
@@ -463,7 +492,7 @@ namespace TF2SpectatorWin
             string[] messages = SplitMessage(message);
             foreach (string msg in messages)
                 if (Client == null || !Client.JoinedChannels.Any())
-                    Console.WriteLine(msg);
+                    LogStatus(msg);
                 else
                 {
                     if (string.IsNullOrEmpty(messageID))
@@ -506,31 +535,53 @@ namespace TF2SpectatorWin
 
         private void Client_OnLog(object sender, OnLogArgs e)
         {
-            Console.WriteLine($"{e.DateTime.ToString()}: {e.BotUsername} - {e.Data}");
+            LogStatus($"{e.DateTime.ToString()}: {e.BotUsername} - {e.Data}");
         }
 
         private void Client_OnSendReceiveData(object sender, OnSendReceiveDataArgs e)
         {
             //Received - @badge-info=subscriber/1;badges=broadcaster/1,subscriber/0;color=#2E8B57;custom-reward-id=cbabba18-d1ec-44ca-9e30-59303812a600;display-name=id_rotatcepS;emotes=;first-msg=0;flags=;id=17374374-de7f-4f82-bb54-c61c7a5ed19f;mod=0;returning-chatter=0;room-id=491942603;subscriber=1;tmi-sent-ts=1703397616900;turbo=0;user-id=491942603;user-type= :id_rotatceps!id_rotatceps@id_rotatceps.tmi.twitch.tv PRIVMSG #id_rotatceps :sdf
 
-            Console.WriteLine($"{e.Direction.ToString()} - {e.Data}");
+            LogStatus($"{e.Direction.ToString()} - {e.Data}");
         }
 
         private void Client_OnUnaccountedFor(object sender, OnUnaccountedForArgs e)
         {
 
-            Console.WriteLine($"{e.BotUsername} - {e.RawIRC}");
+            LogStatus($"{e.BotUsername} - {e.RawIRC}");
         }
 
         private void Client_OnConnected(object sender, OnConnectedArgs e)
         {
-            //Console.WriteLine($"Connected to {e.AutoJoinChannel}");
+            //LogStatus($"TwitchClient Connected to {e.AutoJoinChannel}");
             // channel arg takes care of this //client.JoinChannel(TwitchUsername);
+        }
+
+        private void Client_OnDisconnected(object sender, TwitchLib.Communication.Events.OnDisconnectedEventArgs e)
+        {
+            if (disposing)
+                return;
+
+            LogError($"TwitchClient Disconnected, reconnection begun.");
+
+            // Client.Reconnect() didn't seem to do what I need
+            while (!Client.IsConnected)
+            {
+                //TODO escape clause, exponential backoff?
+
+                // clean up everything so we can re-establish everything.
+                //Dispose detaches this OnDisconnected event as well
+                try { Dispose(); } catch (Exception) { }
+
+                Task.Delay(1000).Wait();
+
+                StartClient(new ConnectionCredentials(TwitchUsername, AuthToken));
+            }
         }
 
         private void Client_OnJoinedChannel(object sender, OnJoinedChannelArgs e)
         {
-            Console.WriteLine("Hey guys! I am a bot connected via TwitchLib!");
+            LogStatus("Hey guys! I am a bot connected via TwitchLib!");
             ((TwitchClient)sender).SendMessage(e.Channel, ConnectMessage);
         }
 
@@ -546,7 +597,7 @@ namespace TF2SpectatorWin
                 return;
             }
 
-            Console.WriteLine(e.ChatMessage.Channel + " MESSAGE:" +
+            LogStatus(e.ChatMessage.Channel + " MESSAGE:" +
                 e.ChatMessage.BotUsername + "got from " + e.ChatMessage.Username + "message: " + e.ChatMessage.Message
                 + " reward:" + e.ChatMessage.CustomRewardId);
             //if (e.ChatMessage.Message.Contains("badword"))
